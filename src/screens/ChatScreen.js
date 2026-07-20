@@ -70,6 +70,7 @@ export default function ChatScreen({ navigation }) {
       <Header title="Chat" />
       <View>
         {chats?.map((chat) => {
+          console.log(chats);
           return (
             <TouchableOpacity
               style={styles.userButton}
@@ -77,6 +78,7 @@ export default function ChatScreen({ navigation }) {
                 navigation.navigate("Conversation", {
                   isChatbot: chat.isChatbot,
                   chatId: chat.chatId,
+                  chatbotName: "BasicChatbot",
                 });
               }}
               key={chat.chatId}
