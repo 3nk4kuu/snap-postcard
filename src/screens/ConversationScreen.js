@@ -10,116 +10,148 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
+
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function ConversationScreen({ route }) {
   const { chatbotName } = route.params;
 
+  const [message, setMessage] = useState("");
+
   const [messages, setMessages] = useState([
     {
       id: "1",
-      text: "Hi! 👋",
       sender: "bot",
+      name: chatbotName,
+      text: "Hi Sarah",
+      color: "#00A7B5",
     },
     {
       id: "2",
-      text: "Hello!",
       sender: "me",
+      name: "ME",
+      text: "hi bob",
+      color: "#FF2D55",
     },
   ]);
 
-  const [input, setInput] = useState("");
+  const listRef = useRef();
 
-  const flatListRef = useRef(null);
+  function sendMessage() {
+    if (!message.trim()) return;
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
+    setMessages([
+      ...messages,
+      {
+        id: Date.now().toString(),
+        sender: "me",
+        name: "ME",
+        text: message,
+        color: "#FF2D55",
+      },
+    ]);
 
-    const newMessage = {
-      id: Date.now().toString(),
-      text: input,
-      sender: "me",
-    };
+    setMessage("");
+  }
 
-    setMessages((prev) => [...prev, newMessage]);
-    setInput("");
+  function renderMessage({ item }) {
+    return (
+      <View style={styles.messageWrapper}>
+        <Text
+          style={[
+            styles.sender,
+            {
+              color: item.color,
+            },
+          ]}
+        >
+          {item.name}
+        </Text>
 
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-
-    // Placeholder for AI response
-    // call chatbot here
-  };
-
-  const renderItem = ({ item }) => (
-    <View
-      style={[
-        styles.messageContainer,
-        item.sender === "me" ? styles.myContainer : styles.botContainer,
-      ]}
-    >
-      <View
-        style={[
-          styles.message,
-          item.sender === "me" ? styles.myMessage : styles.botMessage,
-        ]}
-      >
-        <Text style={styles.messageText}>{item.text}</Text>
+        <View
+          style={[
+            styles.messageRow,
+            {
+              borderLeftColor: item.color,
+            },
+          ]}
+        >
+          <Text style={styles.messageText}>{item.text}</Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
 
-      <View style={styles.header}>
-        <Ionicons name="chevron-back" size={28} />
+      {/* <View style={styles.header}>
+        <Ionicons name="chevron-back" size={32} />
 
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{chatbotName[0]}</Text>
+          <Text>🙂</Text>
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{chatbotName}</Text>
-          <Text style={styles.status}>Online</Text>
-        </View>
+        <Text style={styles.username}>{chatbotName}</Text>
 
-        <Ionicons name="ellipsis-horizontal" size={24} />
-      </View>
+        <View style={styles.headerIcons}>
+          <Ionicons name="call" size={23} />
+
+          <Ionicons name="videocam" size={25} />
+        </View>
+      </View> */}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <FlatList
-          ref={flatListRef}
+          ref={listRef}
           data={messages}
+          renderItem={renderMessage}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.chat}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
+          contentContainerStyle={styles.messages}
         />
 
-        {/* Bottom Bar */}
+        {/* INPUT AREA */}
 
-        <View style={styles.bottomBar}>
-          <Ionicons name="camera-outline" size={28} />
+        {/* INPUT AREA */}
 
-          <Ionicons name="image-outline" size={24} />
+        <View style={styles.inputBar}>
+          {/* Camera */}
+          <TouchableOpacity>
+            <Ionicons name="camera" size={27} color="#000" />
+          </TouchableOpacity>
 
+          {/* Text Input */}
           <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Send a Chat"
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Chat"
             style={styles.input}
+            onSubmitEditing={sendMessage}
           />
 
-          <TouchableOpacity onPress={sendMessage}>
-            <Ionicons name="send" size={24} color="#0A84FF" />
+          {/* Dynamic Button */}
+          {message.length > 0 ? (
+            <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+              <Ionicons name="arrow-up" size={22} color="white" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity>
+              <Ionicons name="mic" size={24} />
+            </TouchableOpacity>
+          )}
+
+          {/* Emoji */}
+          <TouchableOpacity>
+            <Text style={styles.emoji}>🙂</Text>
+          </TouchableOpacity>
+
+          {/* Plus */}
+          <TouchableOpacity>
+            <Ionicons name="add-circle-outline" size={28} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -129,92 +161,91 @@ export default function ConversationScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF",
+    backgroundColor: "#fff",
   },
 
   header: {
+    height: 65,
     flexDirection: "row",
     alignItems: "center",
-    height: 70,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderColor: "#EEE",
+    paddingHorizontal: 12,
   },
 
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    height: 38,
+    width: 38,
+    borderRadius: 19,
     backgroundColor: "#FFFC00",
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: 12,
+    marginLeft: 10,
   },
 
-  avatarText: {
+  username: {
+    fontSize: 20,
     fontWeight: "700",
-    fontSize: 18,
+    marginLeft: 10,
+    flex: 1,
   },
 
-  name: {
-    fontSize: 18,
+  headerIcons: {
+    flexDirection: "row",
+    gap: 18,
+  },
+
+  messages: {
+    paddingHorizontal: 12,
+    paddingBottom: 20,
+  },
+
+  messageWrapper: {
+    marginVertical: 7,
+  },
+
+  sender: {
+    fontSize: 13,
     fontWeight: "700",
+    marginBottom: 3,
   },
 
-  status: {
-    color: "#888",
-  },
-
-  chat: {
-    padding: 15,
-  },
-
-  messageContainer: {
-    width: "100%",
-    marginVertical: 6,
-  },
-
-  myContainer: {
-    alignItems: "flex-end",
-  },
-
-  botContainer: {
-    alignItems: "flex-start",
-  },
-
-  message: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    maxWidth: "80%",
-  },
-
-  myMessage: {
-    backgroundColor: "#0A84FF",
-  },
-
-  botMessage: {
-    backgroundColor: "#F1F1F1",
+  messageRow: {
+    borderLeftWidth: 3,
+    paddingLeft: 8,
   },
 
   messageText: {
-    fontSize: 17,
+    fontSize: 18,
+    color: "#222",
   },
 
-  bottomBar: {
+  inputBar: {
+    height: 55,
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 10,
+    gap: 12,
     borderTopWidth: 1,
-    borderColor: "#EEE",
+    borderColor: "#eee",
   },
 
   input: {
     flex: 1,
-    height: 42,
-    backgroundColor: "#F3F3F3",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    marginHorizontal: 10,
+    height: 40,
+    backgroundColor: "#F1F1F5",
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    fontSize: 17,
+  },
+
+  emoji: {
+    fontSize: 25,
+  },
+  sendButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#0A84FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
