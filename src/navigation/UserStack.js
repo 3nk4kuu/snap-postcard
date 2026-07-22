@@ -12,6 +12,7 @@ import AstrologyScreen from "../screens/AstrologyScreen";
 import MemoryScreen from "../screens/MemoryScreen";
 import EventScreen from "../screens/EventScreen"; //New component by Sona and Christian
 import PostcardHubScreen from "../screens/PostcardHubScreen.js";
+import PostCardEventScreen from "../screens/PostcardEventScreen.js";
 
 const Stack = createStackNavigator();
 
@@ -51,6 +52,10 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="PostCardEventScreen"
+          component={PostCardEventScreen}
+        />
+        <Stack.Screen
           name="MemoryScreen"
           component={MemoryScreen}
           options={{ headerShown: true }}
@@ -70,7 +75,7 @@ export default function App() {
           component={EventScreen}
           options={{ headerShown: true }}
         />
-          <Stack.Screen
+        <Stack.Screen
           name="Postcard"
           component={PostcardHubScreen}
           options={{ headerShown: true }}
