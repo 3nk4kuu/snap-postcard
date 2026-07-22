@@ -10,13 +10,21 @@ export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
+  const happeningNow = {
+  id: '1',
+  title: 'Bonfire @ Dockweiler',
+  date: 'July 16',
+  meta: 'Started at 7:00 PM / Jess, Sam, +2',
+  image: 'https://example.com/bonfire.jpg',
+};
+
   function toggleComponent() {
     setVisible(!visible);
   }
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("postcard-event-table").select("*");
+      const { data, error } = await supabase.from("events").select("*");
 
       console.log("Fetched data:", data);
       console.log("Fetch stuff")
@@ -100,6 +108,7 @@ export default function PostCardHubScreen({ navigation }) {
         }}
       />
     </View>
+    
   );
 }
 
