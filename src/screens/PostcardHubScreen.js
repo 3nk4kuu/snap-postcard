@@ -10,6 +10,14 @@ export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
+  const happeningNow = {
+  id: '1',
+  title: 'Bonfire @ Dockweiler',
+  date: 'July 16',
+  meta: 'Started at 7:00 PM / Jess, Sam, +2',
+  image: 'https://example.com/bonfire.jpg',
+};
+
   function toggleComponent() {
     setVisible(!visible);
   }
@@ -100,6 +108,7 @@ export default function PostCardHubScreen({ navigation }) {
         }}
       />
     </View>
+    
   );
 }
 
