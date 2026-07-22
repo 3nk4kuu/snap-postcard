@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
+  StyleSheet, Pressable,
 } from "react-native";
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-export default function ConversationScreen({ route }) {
+export default function ConversationScreen({ navigation, route }) {
   const { chatbotName } = route.params;
 
   const [message, setMessage] = useState("");
@@ -86,7 +86,7 @@ export default function ConversationScreen({ route }) {
     <SafeAreaView style={styles.container}>
       {/* HEADER */}
 
-      {/* <View style={styles.header}>
+      <View style={styles.header}>
         <Ionicons name="chevron-back" size={32} />
 
         <View style={styles.avatar}>
@@ -96,11 +96,22 @@ export default function ConversationScreen({ route }) {
         <Text style={styles.username}>{chatbotName}</Text>
 
         <View style={styles.headerIcons}>
-          <Ionicons name="call" size={23} />
-
+          <TouchableOpacity 
+            onPress={() =>
+              navigation.navigate("Postcard", {
+              })
+            }
+          >
+          <Ionicons name="calendar" size={25}  />
+          </TouchableOpacity>
+          <TouchableOpacity>
           <Ionicons name="videocam" size={25} />
+          </TouchableOpacity>
+          <TouchableOpacity>
+          <Ionicons name="call" size={23} />
+          </TouchableOpacity>
         </View>
-      </View> */}
+      </View> 
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
