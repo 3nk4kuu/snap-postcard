@@ -6,10 +6,10 @@ import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
 import { supabase } from "../../utils/hooks/supabase";
 
-
+import { formatTime } from "../../utils/dateFormats";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-export default function PostCardHubScreen({ navigation }) {
+export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
@@ -20,9 +20,9 @@ export default function PostCardHubScreen({ navigation }) {
   const happeningNow = {
   id: '1',
   title: 'Bonfire @ Dockweiler',
-  date: 'July 16',
-  meta: 'Started at 7:00 PM / Jess, Sam, +2',
-  image: 'https://example.com/bonfire.jpg',
+  start_datetime: '2026-07-23 06:30:00',
+  end_datetime: '2026-07-23 09:30:00',
+  media: 'https://example.com/bonfire.jpg',
   }
 
   function toggleComponent() {
@@ -34,12 +34,10 @@ export default function PostCardHubScreen({ navigation }) {
       const { data, error } = await supabase.from("events").select("*");
 
       console.log("Fetched data:", data);
-      console.log("Fetch stuff")
+      console.log("Fetch stuff");
       console.log("Fetch error:", error);
 
-      
-
-
+    
       if (error) {
         console.error("Error fetching data:", error);
       } else {
@@ -65,42 +63,58 @@ export default function PostCardHubScreen({ navigation }) {
     <View style={styles.EventScreen}>
       {/* Header */}
       <View style={styles.header}>
-              <View styles={styles.searchBar}>
-                <TextInput styles={styles.searchInput}> Input text here
-
-                </TextInput>
+          <View styles={styles.searchBar}>
+            <TextInput styles={styles.searchInput}> Input text here
+            </TextInput>
+          </View>
+          {/*Header icons */}
+            <View style={styles.headerIcons}>
+              <TouchableOpacity>
+              <Ionicons name="calendar" size={25}  />
+              </TouchableOpacity>
+              <TouchableOpacity>
+              <Ionicons name="videocam" size={25} />
+              </TouchableOpacity>
+              <TouchableOpacity>
+              <Ionicons name="call" size={23} />
+              </TouchableOpacity>
+            </View>
+      </View>
+              {/*Live Card */}
+              <View style={styles.liveCard}>
+              <TouchableOpacity>
+                <Text style={styles.listImage}> {happeningNow.media} </Text>
+                <Card.Title style={styles.listTitle}>{happeningNow.title}</Card.Title>
+                <View styles={styles.listTimeContainer}>
+                  <Text style={styles.listDate}> {formatTime(happeningNow.start_datetime)} </Text>
+                  <Text style={styles.listDate}> {formatTime(happeningNow.end_datetime)} </Text>
+                </View>
+                <Text style={styles.listMeta}> {happeningNow.attending} </Text>
+                <Text style={styles.listDescription}> {happeningNow.description} </Text>
+              </TouchableOpacity>
               </View>
       
-              <View style={styles.headerIcons}>
-                <TouchableOpacity >
-                <Ionicons name="calendar" size={25}  />
-                </TouchableOpacity>
-                <TouchableOpacity>
-                <Ionicons name="videocam" size={25} />
-                </TouchableOpacity>
-                <TouchableOpacity>
-                <Ionicons name="call" size={23} />
-                </TouchableOpacity>
-              </View>
-            </View> 
+              
+
       <ScrollView>
         <View style={styles.Events}>
           {events.map((event) => (
             <TouchableOpacity
-            styles={styles.listRow}
+            styles={styles.listCard}
               key={event.id}
               // Direct navigation — passes event data to PostCardEventScreen
               onPress={() =>
                 navigation.navigate("PostCardEventScreen", { event })
               }
-              style={styles.listCard}
+              style={styles.listRow}
             >
-              <View styles={styles.listRow}>
+              {/* Event list */}
+              <View styles={styles.listText}>
                 <Text style={styles.listImage}> {event.media} </Text>
                 <Card.Title style={styles.listTitle}>{event.title}</Card.Title>
                 <View styles={styles.listTimeContainer}>
-                  <Text style={styles.listDate}> {event.start_datetime} </Text>
-                  <Text style={styles.listDate}> {event.end_datetime} </Text>
+                  <Text style={styles.listDate}> {formatTime(event.start_datetime)} </Text>
+                  <Text style={styles.listDate}> {formatTime(event.end_datetime)} </Text>
                 </View>
                 <Text style={styles.listMeta}> {event.attending} </Text>
                 <Text style={styles.listDescription}> {event.description} </Text>
@@ -282,6 +296,10 @@ const styles = StyleSheet.create({
   liveCardTextContainer: {
     flex: 1,
   },
+  liveCardText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
   liveCardTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -330,7 +348,9 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: '#D1D1D6',
   },
-  
+  listText: {
+    flex: 1,
+  },
   listTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -339,7 +359,7 @@ const styles = StyleSheet.create({
   },
   listDescription: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: '#000000',
   },
   listTimeContainer: {
     flex: 1,
@@ -352,13 +372,13 @@ const styles = StyleSheet.create({
   },
   listMeta: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: '#3C3C43',
   },
   listMenuButton: {
     padding: 8,
   },
   listMenuDots: {
-    color: '#8E8E93',
+    color: '#3C3C43',
   },
   fab: { //floating action button
     position: 'absolute',
