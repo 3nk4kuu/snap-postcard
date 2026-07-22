@@ -5,6 +5,9 @@ import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
 import { supabase } from "../../utils/hooks/supabase";
+import { SearchBar } from "@rn-vui/base";
+
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
@@ -16,7 +19,7 @@ export default function PostCardHubScreen({ navigation }) {
   date: 'July 16',
   meta: 'Started at 7:00 PM / Jess, Sam, +2',
   image: 'https://example.com/bonfire.jpg',
-};
+  }
 
   function toggleComponent() {
     setVisible(!visible);
@@ -49,43 +52,52 @@ export default function PostCardHubScreen({ navigation }) {
     fetchData();
   }, []);
 
+  //todo: need to make event dividers by date, and happening now section
+  //todo: add search bar, banner, and search functionality
+
   return (
     <View style={styles.EventScreen}>
+      {/* Header */}
+      <View style={styles.header}>
+              <View styles={styles.searchBar}>
+                <TextInput styles={styles.searchInput}> Input text here
+
+                </TextInput>
+              </View>
+      
+              <View style={styles.headerIcons}>
+                <TouchableOpacity >
+                <Ionicons name="calendar" size={25}  />
+                </TouchableOpacity>
+                <TouchableOpacity>
+                <Ionicons name="videocam" size={25} />
+                </TouchableOpacity>
+                <TouchableOpacity>
+                <Ionicons name="call" size={23} />
+                </TouchableOpacity>
+              </View>
+            </View> 
       <ScrollView>
         <View style={styles.Events}>
           {events.map((event) => (
             <TouchableOpacity
+            styles={styles.listRow}
               key={event.id}
               // Direct navigation — passes event data to PostCardEventScreen
               onPress={() =>
                 navigation.navigate("PostCardEventScreen", { event })
               }
-              style={styles.container}
+              style={styles.listCard}
             >
-              <View style={styles.friends}>
-                <Text style={styles.friendsText}>
-                  {event.attending} friends going
-                </Text>
-              </View>
-              <Image
-                style={{
-                  width: "100%",
-                  aspectRatio: 1,
-                  borderRadius: 20,
-                  objectFit: "cover",
-                }}
-                resizeMode="contain"
-                source={{ uri: event.imageURL }}
-              />
-              <Card.Title style={styles.title}>{event.title}</Card.Title>
-              <View style={styles.userInfo}>
-                <Image
-                  style={styles.bitmojiUser}
-                  source={{
-                    uri: "https://sdk.bitmoji.com/render/panel/20048676-103221902646_4-s5-v1.png?transparent=1&palette=1&scale=1",
-                  }}
-                />
-                <Text style={styles.username}>{event.host}</Text>
+              <View styles={styles.listRow}>
+                <Text style={styles.listImage}> {event.media} </Text>
+                <Card.Title style={styles.listTitle}>{event.title}</Card.Title>
+                <View styles={styles.listTimeContainer}>
+                  <Text style={styles.listDate}> {event.start_datetime} </Text>
+                  <Text style={styles.listDate}> {event.end_datetime} </Text>
+                </View>
+                <Text style={styles.listMeta}> {event.attending} </Text>
+                <Text style={styles.listDescription}> {event.description} </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -144,13 +156,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 5,
     fontSize: 15,
-  },
-  userInfo: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    margin: 0,
   },
   friends: {
     position: "absolute",
@@ -299,6 +304,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 10,
     overflow: 'hidden',
+    height: 100,
   },
   listRow: {
     flexDirection: 'row',
@@ -318,14 +324,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: '#D1D1D6',
   },
-  listTextContainer: {
-    flex: 1,
-  },
+  
   listTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
     marginBottom: 2,
+  },
+  listDescription: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+  listTimeContainer: {
+    flex: 1,
   },
   listDate: {
     fontSize: 13,
