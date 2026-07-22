@@ -9,7 +9,7 @@ import { SearchBar } from "@rn-vui/base";
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-export default function PostCardHubScreen({ navigation }) {
+export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 

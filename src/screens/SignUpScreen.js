@@ -41,6 +41,8 @@ export default function SignupScreen({ navigation }) {
         options: {
           data: {
             userName: email.split("@")[0],
+            email: email,
+            birthday: birthday
           },
         },
       });
