@@ -24,7 +24,7 @@ export default function PostCardHubScreen({ navigation }) {
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("postcard-event-table").select("*");
+      const { data, error } = await supabase.from("events").select("*");
 
       console.log("Fetched data:", data);
       console.log("Fetch stuff")
