@@ -86,6 +86,19 @@ export default function MapScreen({ navigation }) {
               </View>
             </View>
           </Pressable>
+          {/*Navigation to postcard hub screen */}
+          <Pressable
+            onPress={() => {
+              navigation.navigate("Postcard");
+            }}
+          >
+            <View style={styles.myBitmoji}>
+              <Ionicons name="calendar-outline" size={50} color="gray" />
+              <View style={styles.bitmojiTextContainer}>
+                <Text style={styles.bitmojiText}>Postcard</Text>
+              </View>
+            </View>
+          </Pressable>
 
           <View style={styles.places}>
             <Image

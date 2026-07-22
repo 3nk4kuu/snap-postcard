@@ -26,11 +26,13 @@ export default function SignupScreen({ navigation }) {
   }
 
   async function handleSubmit() {
-    // console.log("handle submit invoked!!");
+  console.log("handle submit invoked!!");
 
     try {
       // sign up with additional user metadata
       // https://supabase.com/docs/reference/javascript/auth-signup
+
+      console.log("About to call signup");
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -42,9 +44,15 @@ export default function SignupScreen({ navigation }) {
           },
         },
       });
+      console.log("Returned from signup");
 
       if (error) {
         console.error("Error signing up:", error.message);
+        /*console.log(Object.keys(error));
+        console.log(error.cause);
+        console.log(error.status);
+        console.log(error.name);*/
+
         if (error.message.includes("User already registered")) {
           setAlreadyInUseButton(true);
           setAlreadyInUseMessage(
@@ -54,7 +62,7 @@ export default function SignupScreen({ navigation }) {
           setAlreadyInUseMessage("");
         }
       } else {
-        // console.log("User signed up:", data);
+        console.log("User signed up:", data);
         // Navigate to a different screen or handle successful signup
 
         console.log("User signed up:", JSON.stringify(data, null, 4));
