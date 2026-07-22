@@ -1,30 +1,17 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
-
+import React, { useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
 import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
-import EventInfo from "../components/EventInfo";
 import { supabase } from "../../utils/hooks/supabase";
 
-
-export default function PostCardHubScreen({ route, navigation }) {
+export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
 
   function toggleComponent() {
     setVisible(!visible);
-    console.log(visible);
-  }
-
-  function handleCardTouch(event) {
-    setDetailsVisible(true);
-    console.log(detailsVisible);
-    setSelectedEvent(event);
   }
 
   const fetchData = async () => {
@@ -61,7 +48,10 @@ export default function PostCardHubScreen({ route, navigation }) {
           {events.map((event) => (
             <TouchableOpacity
               key={event.id}
-              onPress={() => handleCardTouch(event)}
+              // Direct navigation — passes event data to PostCardEventScreen
+              onPress={() =>
+                navigation.navigate("PostCardEventScreen", { event })
+              }
               style={styles.container}
             >
               <View style={styles.friends}>
@@ -93,6 +83,7 @@ export default function PostCardHubScreen({ route, navigation }) {
           ))}
         </View>
       </ScrollView>
+
       <FAB
         onPress={toggleComponent}
         style={styles.addButton}
@@ -100,17 +91,13 @@ export default function PostCardHubScreen({ route, navigation }) {
         icon={{ name: "add", color: "white" }}
         color="#FF3386"
       />
+      
       <AddEvent
         isVisible={visible}
         onClose={() => {
           toggleComponent();
           refreshEvents();
         }}
-      />
-      <EventInfo
-        isVisible={detailsVisible}
-        event={selectedEvent}
-        onClose={() => setDetailsVisible(false)}
       />
     </View>
   );
@@ -132,9 +119,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E5E5",
     display: "flex",
     justifyContent: "space-between",
-    // alignItems:"center",
     padding: 10,
-    // gap:10,
     borderRadius: 20,
     maxHeight: 250,
     margin: 0,

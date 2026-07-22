@@ -13,7 +13,7 @@ import {
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-export default function ConversationScreen({ route }) {
+export default function ConversationScreen({ navigation, route }) {
   const { chatbotName } = route.params;
 
   const [message, setMessage] = useState("");
@@ -95,16 +95,20 @@ export default function ConversationScreen({ route }) {
 
         <Text style={styles.username}>{chatbotName}</Text>
 
-        <View >
-          <TouchableOpacity style={styles.headerIcons}
+        <View style={styles.headerIcons}>
+          <TouchableOpacity 
             onPress={() =>
               navigation.navigate("Postcard", {
               })
             }
           >
-          <Ionicons name="call" size={23} />
-          <Ionicons name="videocam" size={25} />
           <Ionicons name="calendar" size={25}  />
+          </TouchableOpacity>
+          <TouchableOpacity>
+          <Ionicons name="videocam" size={25} />
+          </TouchableOpacity>
+          <TouchableOpacity>
+          <Ionicons name="call" size={23} />
           </TouchableOpacity>
         </View>
       </View> 
