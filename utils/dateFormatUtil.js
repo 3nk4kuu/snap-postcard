@@ -18,7 +18,7 @@ export function formatTime(isoString) {
     // Friday, Jul 17
     // Friday, Jul 17 · 7:00 PM -> will be formatted in component
         // Day, Short month Short Day · Call Time formatter
-export function formatMonthDay(isoString) {
+export function formatEventDate(isoString) {
   if (!isoString) return '';
   
   const date = new Date(isoString);
@@ -31,7 +31,7 @@ export function formatMonthDay(isoString) {
 
 // July 16
         // Month Day
-export function formatEventDate(isoString) {
+export function formatMonthDay(isoString) {
   if (!isoString) return '';
   
   const date = new Date(isoString);
