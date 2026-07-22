@@ -6,7 +6,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
 import { supabase } from "../../utils/hooks/supabase";
 
-export default function PostCardHubScreen({ navigation }) {
+export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
