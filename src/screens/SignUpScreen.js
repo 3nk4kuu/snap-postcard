@@ -64,9 +64,7 @@ export default function SignupScreen({ navigation }) {
       } else {
         console.log("User signed up:", data);
         // Navigate to a different screen or handle successful signup
-
-        console.log("User signed up:", JSON.stringify(data, null, 4));
-
+  
         try {
           console.log("Now updating profile with birthday");
           const updates = {
