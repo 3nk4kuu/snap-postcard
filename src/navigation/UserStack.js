@@ -11,6 +11,7 @@ import FriendStory from "../screens/FriendStory";
 import AstrologyScreen from "../screens/AstrologyScreen";
 import MemoryScreen from "../screens/MemoryScreen";
 import EventScreen from "../screens/EventScreen"; //New component by Sona and Christian
+import PostcardHubScreen from "../screens/PostcardHubScreen.js";
 
 const Stack = createStackNavigator();
 
@@ -67,6 +68,11 @@ export default function App() {
         <Stack.Screen
           name="Event"
           component={EventScreen}
+          options={{ headerShown: true }}
+        />
+          <Stack.Screen
+          name="Postcard"
+          component={PostcardHubScreen}
           options={{ headerShown: true }}
         />
       </Stack.Navigator>

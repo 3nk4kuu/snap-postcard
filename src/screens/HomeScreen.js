@@ -1,3 +1,5 @@
+//yellow page with login or sign up
+
 import React from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 
