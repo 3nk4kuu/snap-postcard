@@ -64,9 +64,7 @@ export default function SignupScreen({ navigation }) {
       } else {
         console.log("User signed up:", data);
         // Navigate to a different screen or handle successful signup
-
-        console.log("User signed up:", JSON.stringify(data, null, 4));
-
+  
         try {
           console.log("Now updating profile with birthday");
           const updates = {
@@ -101,7 +99,7 @@ export default function SignupScreen({ navigation }) {
       <Text style={styles.signUpTitle}>Sign Up</Text>
       <View style={styles.signUpFields}>
         <Text style={styles.accountExistsText}>{alreadyInUseMessage}</Text>
-        <Text style={styles.inputText}>USERNAME OR EMAIL</Text>
+        <Text style={styles.inputText}>EMAIL</Text>
         <TextInput
           style={styles.inputField}
           secureTextEntry={false}

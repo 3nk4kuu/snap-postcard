@@ -1,47 +1,36 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
-
+import React, { useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Image,
-  Button,
-  TouchableOpacity,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
-import EventInfo from "../components/EventInfo";
 import { supabase } from "../../utils/hooks/supabase";
 
-
-export default function PostCardHubScreen({ route, navigation }) {
+export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  const happeningNow = {
+  id: '1',
+  title: 'Bonfire @ Dockweiler',
+  date: 'July 16',
+  meta: 'Started at 7:00 PM / Jess, Sam, +2',
+  image: 'https://example.com/bonfire.jpg',
+};
 
   function toggleComponent() {
     setVisible(!visible);
-    console.log(visible);
-  }
-
-  function handleCardTouch(event) {
-    setDetailsVisible(true);
-    console.log(detailsVisible);
-    setSelectedEvent(event);
   }
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("postcard-event-table").select("*");
+      const { data, error } = await supabase.from("events").select("*");
 
       console.log("Fetched data:", data);
+      console.log("Fetch stuff")
       console.log("Fetch error:", error);
 
-      
+
       if (error) {
         console.error("Error fetching data:", error);
       } else {
@@ -67,7 +56,10 @@ export default function PostCardHubScreen({ route, navigation }) {
           {events.map((event) => (
             <TouchableOpacity
               key={event.id}
-              onPress={() => handleCardTouch(event)}
+              // Direct navigation — passes event data to PostCardEventScreen
+              onPress={() =>
+                navigation.navigate("PostCardEventScreen", { event })
+              }
               style={styles.container}
             >
               <View style={styles.friends}>
@@ -99,6 +91,7 @@ export default function PostCardHubScreen({ route, navigation }) {
           ))}
         </View>
       </ScrollView>
+
       <FAB
         onPress={toggleComponent}
         style={styles.addButton}
@@ -106,6 +99,7 @@ export default function PostCardHubScreen({ route, navigation }) {
         icon={{ name: "add", color: "white" }}
         color="#FF3386"
       />
+      
       <AddEvent
         isVisible={visible}
         onClose={() => {
@@ -113,16 +107,13 @@ export default function PostCardHubScreen({ route, navigation }) {
           refreshEvents();
         }}
       />
-      <EventInfo
-        isVisible={detailsVisible}
-        event={selectedEvent}
-        onClose={() => setDetailsVisible(false)}
-      />
     </View>
+    
   );
 }
 
 const styles = StyleSheet.create({
+  //-----default styling-----------
   Events: {
     padding: 20,
     width: "100%",
@@ -137,9 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E5E5",
     display: "flex",
     justifyContent: "space-between",
-    // alignItems:"center",
     padding: 10,
-    // gap:10,
     borderRadius: 20,
     maxHeight: 250,
     margin: 0,
@@ -191,4 +180,183 @@ const styles = StyleSheet.create({
   EventScreen: {
     height: "100%",
   },
+  //---------------------
+    header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  headerBackButton: {
+    position: 'absolute',
+    left: 16,
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#D1D1D6',
+  },
+  // Search bar
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E5E5EA',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 10,
+    height: 36,
+  },
+  searchIcon: {
+    marginRight: 6,
+    color: '#8E8E93',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#000000',
+  },
+  searchScanIcon: {
+    marginLeft: 6,
+    color: '#8E8E93',
+  },
+ 
+  // Icon row (people / contact / location / add)
+  iconRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+ 
+  // Section headers ("Happening Now", "July 2026", etc.)
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+ //------------------------
+  // "Happening Now" highlighted card
+  liveCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7C3AED', // purple
+    borderRadius: 16,
+    marginHorizontal: 16,
+    padding: 12,
+  },
+  liveCardImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  liveCardTextContainer: {
+    flex: 1,
+  },
+  liveCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  liveCardDate: {
+    fontSize: 13,
+    color: '#E9D5FF',
+    marginBottom: 2,
+  },
+  liveCardMeta: {
+    fontSize: 13,
+    color: '#E9D5FF',
+  },
+  liveCardMenuButton: {
+    padding: 8,
+  },
+  liveCardMenuDots: {
+    color: '#FFFFFF',
+  },
+  //------------------------
+  listCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  listRowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E5EA',
+    marginLeft: 72, // aligns with text, not thumbnail
+  },
+  listImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+    backgroundColor: '#D1D1D6',
+  },
+  listTextContainer: {
+    flex: 1,
+  },
+  listTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 2,
+  },
+  listDate: {
+    fontSize: 13,
+    color: '#3C3C43',
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  listMeta: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+  listMenuButton: {
+    padding: 8,
+  },
+  listMenuDots: {
+    color: '#8E8E93',
+  },
+  fab: { //floating action button
+    position: 'absolute',
+    right: 20,
+    bottom: 28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2F87F5', // blue
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6, // Android shadow
+  }
 });
