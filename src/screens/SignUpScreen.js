@@ -101,7 +101,7 @@ export default function SignupScreen({ navigation }) {
       <Text style={styles.signUpTitle}>Sign Up</Text>
       <View style={styles.signUpFields}>
         <Text style={styles.accountExistsText}>{alreadyInUseMessage}</Text>
-        <Text style={styles.inputText}>USERNAME OR EMAIL</Text>
+        <Text style={styles.inputText}>EMAIL</Text>
         <TextInput
           style={styles.inputField}
           secureTextEntry={false}
