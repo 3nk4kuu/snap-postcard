@@ -6,7 +6,6 @@ import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
 import { supabase } from "../../utils/hooks/supabase";
 
-import { SearchBar } from 'react-native-elements';
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
@@ -14,8 +13,8 @@ export default function PostCardHubScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
-  const [search, setSearch] = useState(""); //for setting search 
-  const [filteredData, setFilteredData] = useState(data); //for search results
+  //const [search, setSearch] = useState(""); //for setting search 
+  //const [filteredData, setFilteredData] = useState(data); //for search results
 
 
   const happeningNow = {
@@ -38,13 +37,7 @@ export default function PostCardHubScreen({ navigation }) {
       console.log("Fetch stuff")
       console.log("Fetch error:", error);
 
-       const handleSearch = (text) => {
-    setSearch(text);
-    const filtered = data.filter(item =>
-      item.name.toLowerCase().includes(text.toLowerCase())
-    );
-    setFilteredData(filtered);
-  };
+      
 
 
       if (error) {
