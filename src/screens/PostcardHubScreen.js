@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, {  useMemo, useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
 import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
-import { supabase } from "../../utils/hooks/supabase";
-
-import { formatTime } from "../../utils/dateFormats";
 import Ionicons from "@expo/vector-icons/Ionicons";
+
+import { supabase } from "../../utils/hooks/supabase";
+import { formatMonthDay, formatTime } from "../../utils/dateFormatUtil";
+import dummyEvents from "../../utils/postcardDummyEvents.json";
+
+
 
 export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false);
@@ -17,14 +20,6 @@ export default function PostCardHubScreen({ title, navigation }) {
   //const [filteredData, setFilteredData] = useState(data); //for search results
 
 
-  const happeningNow = {
-  id: '1',
-  title: 'Bonfire @ Dockweiler',
-  start_datetime: '2026-07-23 06:30:00',
-  end_datetime: '2026-07-23 09:30:00',
-  media: 'https://example.com/bonfire.jpg',
-  }
-
   function toggleComponent() {
     setVisible(!visible);
   }
@@ -33,11 +28,21 @@ export default function PostCardHubScreen({ title, navigation }) {
     try {
       const { data, error } = await supabase.from("events").select("*");
 
-      console.log("Fetched data:", data);
-      console.log("Fetch stuff");
-      console.log("Fetch error:", error);
+      //console.log("Fetched data:", data);
+      //console.log("Fetch stuff");
+      //console.log("Fetch error:", error);
 
+      //state variable updates for events right now, today, tomorrow, next week, this month
+   
+    const now = new Date();
+
+    const liveEvent = events.find((event) => {
+    const start = new Date(event.start_datetime);
+    const end = new Date(event.end_datetime);
+    return now >= start && now <= end;
+  });
     
+
       if (error) {
         console.error("Error fetching data:", error);
       } else {
@@ -56,8 +61,10 @@ export default function PostCardHubScreen({ title, navigation }) {
     fetchData();
   }, []);
 
+ 
   //todo: need to make event dividers by date, and happening now section
   //todo: add search bar, banner, and search functionality
+
 
   return (
     <View style={styles.EventScreen}>
@@ -80,24 +87,33 @@ export default function PostCardHubScreen({ title, navigation }) {
               </TouchableOpacity>
             </View>
       </View>
-              {/*Live Card */}
-              <View style={styles.liveCard}>
-              <TouchableOpacity>
-                <Text style={styles.listImage}> {happeningNow.media} </Text>
-                <Card.Title style={styles.listTitle}>{happeningNow.title}</Card.Title>
-                <View styles={styles.listTimeContainer}>
-                  <Text style={styles.listDate}> {formatTime(happeningNow.start_datetime)} </Text>
-                  <Text style={styles.listDate}> {formatTime(happeningNow.end_datetime)} </Text>
-                </View>
-                <Text style={styles.listMeta}> {happeningNow.attending} </Text>
-                <Text style={styles.listDescription}> {happeningNow.description} </Text>
-              </TouchableOpacity>
-              </View>
-      
-              
+      <Text styles={styles.listTitle} > Happening Now
+      </Text>
 
+      {/*Divider here for events that are events currently happening right now}
+
+      {/*Live Card - current time is between start and end time */}
+      {liveEvent && (
+        <View style={styles.liveCard}>
+        <TouchableOpacity>
+          <Text style={styles.liveCardImage}> {liveEvent.media} </Text>
+          <Card.Title style={styles.liveCardTitle}>{liveEvent.title}</Card.Title>
+          <View styles={styles.listTimeContainer}>
+            <Text style={styles.liveCardDate}> {formatTime(liveEvent.start_datetime)} </Text>
+            <Text style={styles.liveCardDate}> {formatTime(liveEvent.end_datetime)} </Text>
+          </View>
+          <Text style={styles.liveCardDescription}> {liveEvent.attending} </Text>
+          <Text style={styles.listDescription}> {liveEvent.description} </Text>
+        </TouchableOpacity>
+      </View>
+      )}
+      
+      
+      {/* divider for events this month */}
+      {/* Event list */}
       <ScrollView>
         <View style={styles.Events}>
+          <Text> </Text>
           {events.map((event) => (
             <TouchableOpacity
             styles={styles.listCard}
@@ -108,11 +124,11 @@ export default function PostCardHubScreen({ title, navigation }) {
               }
               style={styles.listRow}
             >
-              {/* Event list */}
               <View styles={styles.listText}>
                 <Text style={styles.listImage}> {event.media} </Text>
                 <Card.Title style={styles.listTitle}>{event.title}</Card.Title>
                 <View styles={styles.listTimeContainer}>
+                  <Text style={styles.listDate}> {formatMonthDay(event.start_datetime)} </Text>
                   <Text style={styles.listDate}> {formatTime(event.start_datetime)} </Text>
                   <Text style={styles.listDate}> {formatTime(event.end_datetime)} </Text>
                 </View>
@@ -311,17 +327,17 @@ const styles = StyleSheet.create({
     color: '#E9D5FF',
     marginBottom: 2,
   },
-  liveCardMeta: {
+  liveCardDescription: {
     fontSize: 13,
     color: '#E9D5FF',
   },
-  liveCardMenuButton: {
-    padding: 8,
-  },
-  liveCardMenuDots: {
-    color: '#FFFFFF',
-  },
   //------------------------
+    listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
   listCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -329,12 +345,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     overflow: 'hidden',
     height: 100,
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
   },
   listRowDivider: {
     height: StyleSheet.hairlineWidth,
@@ -370,7 +380,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
   },
-  listMeta: {
+  listDescription: {
     fontSize: 13,
     color: '#3C3C43',
   },

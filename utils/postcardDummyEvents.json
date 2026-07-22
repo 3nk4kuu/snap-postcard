@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1",
+    "title": "Bonfire @ Dockweiler",
+    "start_datetime": "2026-07-23 06:30:00",
+    "end_datetime": "2026-07-23 09:30:00",
+    "media": "https://example.com/bonfire.jpg"
+  },
+  {
+    "id": "2",
+    "title": "Movie Night",
+    "start_datetime": "2026-07-28 07:00:00",
+    "end_datetime": "2026-07-28 11:00:00",
+    "media": "https://example.com/bonfire.jpg"
+  }
+]
+
