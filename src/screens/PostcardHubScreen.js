@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
@@ -15,16 +15,30 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
-  
+
+ //need to only show event by if attending or not
+//need to pull media by story type
+//need to fix container visual so attending isn't hidden
 
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*, event_media!event_media_event_fkey(media)");
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+      console.error("No authenticated user:", userError);
+      return;
+      }
 
-      //console.log("Fetched data:", data);
-      //console.log("Fetch stuff");
-      //console.log("Fetch error:", error);
+
+      const { data, error } = await supabase.
+      from("events")
+      .select(`*, 
+        event_media!event_media_event_fkey(media), 
+        invited!invited_event_fkey!inner(id, status)`)
+      .eq("invited.user", user.id)
+      .in("invited.status", ["yes", "maybe"]);
+
+       //Based on "profiles" "id", check if attending status in "invited" to "event" is "yes" or "maybe"
 
   
       if (error) {
@@ -33,6 +47,8 @@ export default function PostCardHubScreen({ title, navigation }) {
         const merged = data.map((event) => ({
           ...event,
           media: event.event_media?.[0]?.media ?? null, //if event_media exists, get first item's iamge url
+          status: event.invited?.[0]?.status ?? null,
+          role: event.invited?.[0]?.role ?? null,
         }));
 
         setEvents(merged);
@@ -82,25 +98,19 @@ export default function PostCardHubScreen({ title, navigation }) {
     });
   }, [filteredEvents]);
 
-  // all upcoming events (excluding the live event)
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-
-    return filteredEvents.filter((event) => {
-      const start = new Date(event.start_datetime);
-
-      return start > now && event.id !== liveEvent?.id;
-    });
-  }, [filteredEvents, liveEvent]);
-
-  //filter events shown by if attending or not
+  // all events excluding the live event
+const AllEvents = useMemo(() => {
+  return filteredEvents.filter((event) => event.id !== liveEvent?.id);
+}, [filteredEvents, liveEvent]);
 
 
-  // Group upcoming events by month
+
+
+  // Group all events by month
   const groupedEvents = useMemo(() => {
     const groups = {};
 
-    upcomingEvents.forEach((event) => {
+    AllEvents.forEach((event) => {
       const month = new Date(event.start_datetime).toLocaleString("default", {
         month: "long",
         year: "numeric",
@@ -120,7 +130,7 @@ export default function PostCardHubScreen({ title, navigation }) {
           (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
         ),
       }));
-  }, [upcomingEvents]);
+  }, [AllEvents]);
 
   return (
     // entire screen
@@ -180,7 +190,7 @@ export default function PostCardHubScreen({ title, navigation }) {
       {/* rest of page */}
 
       {/* Event list */}
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Live card */}
         {/*Live Card - current time is between start and end time */}
         <Text style={styles.sectionHeader}>Happening Now</Text>
@@ -211,12 +221,13 @@ export default function PostCardHubScreen({ title, navigation }) {
                   {formatTime(liveEvent.end_datetime)}
                 </Text>
                 <Text style={styles.liveCardDescription}>
-                  {liveEvent.attending}
+                  {liveEvent.status}
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
         )}
+        
 
         {/* Event list, grouped by month */}
         {groupedEvents.map((section) => (
@@ -240,13 +251,17 @@ export default function PostCardHubScreen({ title, navigation }) {
                         {event.title}
                       </Card.Title>
                       <Text style={styles.listDate}>
-                        {formatMonthDay(event.start_datetime)} ·{" "}
+                      {formatMonthDay(event.start_datetime)} {" "}
+                      </Text>
+                      <Text style={styles.listDate}>
                         {formatTime(event.start_datetime)} –{" "}
                         {formatTime(event.end_datetime)}
                       </Text>
-                      <Text>
-                        {event.attending}
+                      <Text style={styles.listDescription}>
+                        {event.status}
                       </Text>
+                      
+    
                       <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
                     {/* edit button */}
@@ -296,6 +311,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   container: {
     width: "48%",

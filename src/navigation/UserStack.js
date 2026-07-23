@@ -68,7 +68,7 @@ export default function App() {
           name="PostCardEventScreen"
           component={PostCardEventScreen}
           options={{
-            headerShown: true,
+            headerShown: false,
             title: "Event Details",
           }}
         />
