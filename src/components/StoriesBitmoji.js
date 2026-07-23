@@ -18,8 +18,9 @@ import { useNavigation } from "@react-navigation/native";
 
 import Header from "../components/Header";
 
-export default function StoriesBitmoji() {
+export default function StoriesBitmoji({username, avatarURL, onPress }) {
   const navigation = useNavigation();
+
   return (
     <View style={styles.myBitmoji}>
       <Pressable //added a presable to give the story interaction
