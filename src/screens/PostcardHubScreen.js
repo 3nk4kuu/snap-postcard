@@ -16,12 +16,7 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent 
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
-  //const [filteredData, setFilteredData] = useState(data); //for search results
 
-//not needed?
-  // function toggleComponent() {
-  //   setVisible(!visible);
-  // }
 
   const fetchData = async () => {
     try {
@@ -31,9 +26,7 @@ export default function PostCardHubScreen({ title, navigation }) {
       //console.log("Fetch stuff");
       //console.log("Fetch error:", error);
 
-      //state variable updates for events right now, today, tomorrow, next week, this month
-    
-
+  
       if (error) {
         console.error("Error fetching data:", error);
       } else {
@@ -186,10 +179,10 @@ const groupedEvents = useMemo(() => {
 
           {/* Live card */}
         {/*Live Card - current time is between start and end time */}
+        <Text style={styles.sectionHeader}>Happening Now</Text>
         {liveEvent && (
           <View style={styles.liveCard}>
             {/* Divider */}
-            <Text style={styles.sectionHeader}>Happening Now</Text>
             <TouchableOpacity
               style={styles.liveCard}
               onPress={() => 
@@ -204,6 +197,9 @@ const groupedEvents = useMemo(() => {
                 <Card.Title style={styles.liveCardTitle}>
                   {liveEvent.title}
                 </Card.Title>
+                <Text style={styles.liveCardDate}>
+                  {formatMonthDay(liveEvent.start_datetime)} {" "}
+                </Text>
                 <Text style={styles.liveCardDate}>
                   {formatTime(liveEvent.start_datetime)} –{" "}
                   {formatTime(liveEvent.end_datetime)}
@@ -242,6 +238,9 @@ const groupedEvents = useMemo(() => {
                         {formatTime(event.start_datetime)} –{" "}
                         {formatTime(event.end_datetime)}
                       </Text>
+                      <Text>
+                        {event.attending}
+                      </Text>
                       <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
                   </TouchableOpacity>
@@ -266,15 +265,6 @@ const groupedEvents = useMemo(() => {
         icon={<Ionicons name="add" size={28} color="white" />}
         color="#335fff"
       />
-      
-      {/* not needed? Maybe needed inside event creation? */}
-      {/* <AddEvent
-        isVisible={visible}
-        onClose={() => {
-          toggleComponent();
-          refreshEvents();
-        }}
-      /> */}
   </View>
   );
 }
@@ -337,7 +327,7 @@ const styles = StyleSheet.create({
     marginTop: 60,
     height: "100%",
   },
-  //---------------------
+  //----------------------------
     header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -359,7 +349,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#D1D1D6",
   },
-
+//----------------------------
   // Search bar
   searchContainer: {
     flexDirection: 'row',
@@ -385,8 +375,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: '#8E8E93',
   },
- 
-  // Icon row (people / contact / location / add)
+ //----------------------------
+//Icon row (people / contact / location / add)
   iconRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -401,24 +391,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
- 
+ //----------------------------
   // Section headers ("Happening Now", "July 2026", etc.)
   sectionHeader: {
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: '700',
     color: '#000000',
     marginHorizontal: 16,
     marginTop: 18,
     marginBottom: 10,
   },
-  //----------------------
+
  
- //------------------------
+//----------------------------
   // "Happening Now" highlighted card
   liveCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED', // purple
+    backgroundColor: '#6d3bc2', // purple
     borderRadius: 16,
     marginHorizontal: 16,
     padding: 12,
@@ -451,9 +441,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E9D5FF',
   },
-
+//----------------------------
   //lists
-  //------------------------
     listRow: {
     backgroundColor: "#FFFFFF",
     flexDirection: 'row',
@@ -499,6 +488,13 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
   },
+  listMenuButton: {
+    padding: 8,
+  },
+  listMenuDots: {
+    color: "#3C3C43",
+  },
+  //----------------------------
   fab: { //floating action button
     position: 'absolute',
     right: 20,
