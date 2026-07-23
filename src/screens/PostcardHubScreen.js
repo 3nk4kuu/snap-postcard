@@ -1,4 +1,4 @@
-import React, {  useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
 import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
 } from "react-native";
@@ -9,11 +9,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { supabase } from "../../utils/hooks/supabase";
 import { formatMonthDay, formatTime } from "../../utils/dateFormatUtil";
 
-
-
-
 export default function PostCardHubScreen({ title, navigation }) {
-  const [visible, setVisible] = useState(false); //remove if I pull addEvent 
+  const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
 
@@ -50,118 +47,109 @@ export default function PostCardHubScreen({ title, navigation }) {
     fetchData();
   }, []);
 
- 
+  // Search events by title or date
+  const filteredEvents = useMemo(() => {
+    if (!search.trim()) return events;
 
-// Search events by title or date
-const filteredEvents = useMemo(() => {
+    const userSearch = search.toLowerCase();
 
-  if (!search.trim()) return events;
-  
-  const userSearch = search.toLowerCase();
+    //if the there is a match to the title or date, then return that event in a filtered array
+    return events.filter((event) => {
+      const matchingTitle = event.title?.toLowerCase().includes(userSearch);
+      const matchingDate = formatMonthDay(event.start_datetime)
+        ?.toLowerCase()
+        .includes(userSearch);
 
-  //if the there is a match to the title or date, then return that event in a filtered array
-  return events.filter((event) => {
-    const matchingTitle = event.title?.toLowerCase().includes(userSearch); 
-    const matchingDate = formatMonthDay(event.start_datetime)
-      ?.toLowerCase()
-      .includes(userSearch);
+      return matchingTitle || matchingDate;
+    });
+  }, [events, search]);
 
-    return matchingTitle || matchingDate;
-  });
-}, [events, search]);
+  // Event happening right now for live card
+  const liveEvent = useMemo(() => {
+    const now = new Date();
 
+    return filteredEvents.find((event) => {
+      const start = new Date(event.start_datetime);
+      const end = new Date(event.end_datetime);
 
-// Event happening right now for live card
-const liveEvent = useMemo(() => {
-  const now = new Date();
+      return now >= start && now <= end;
+    });
+  }, [filteredEvents]);
 
-  return filteredEvents.find((event) => {
-    const start = new Date(event.start_datetime);
-    const end = new Date(event.end_datetime);
+  // all upcoming events (excluding the live event)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
 
-    return now >= start && now <= end;
-  });
-}, [filteredEvents]);
+    return filteredEvents.filter((event) => {
+      const start = new Date(event.start_datetime);
 
+      return start > now && event.id !== liveEvent?.id;
+    });
+  }, [filteredEvents, liveEvent]);
 
-// all upcoming events (excluding the live event)
-const upcomingEvents = useMemo(() => {
-  const now = new Date();
+  // Group upcoming events by month
+  const groupedEvents = useMemo(() => {
+    const groups = {};
 
-  return filteredEvents.filter((event) => {
-    const start = new Date(event.start_datetime);
+    upcomingEvents.forEach((event) => {
+      const month = new Date(event.start_datetime).toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      });
 
-    return start > now && event.id !== liveEvent?.id;
-  });
-}, [filteredEvents, liveEvent]);
-
-
-// Group upcoming events by month
-const groupedEvents = useMemo(() => {
-  const groups = {};
-
-  upcomingEvents.forEach((event) => {
-    const month = new Date(event.start_datetime).toLocaleString("default", {
-      month: "long",
-      year: "numeric",
+      if (!groups[month]) {
+        groups[month] = [];
+      }
+      groups[month].push(event);
     });
 
-    if (!groups[month]){
-      groups[month] = [];
-    }
-    groups[month].push(event);
-  });
-
-  return Object.entries(groups).sort(([a], [b]) => new Date(a) - new Date(b))
-    .map(([title, data]) => ({
-      title,
-      data: data.sort(
-        (a, b) =>
-          new Date(a.start_datetime) - new Date(b.start_datetime)
-      ),
-    }));
-}, [upcomingEvents]);
-
-
+    return Object.entries(groups)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .map(([title, data]) => ({
+        title,
+        data: data.sort(
+          (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
+        ),
+      }));
+  }, [upcomingEvents]);
 
   return (
     // entire screen
     <View style={styles.EventScreen}>
-
       {/* Header */}
       <View style={styles.header}>
         {/* back button */}
-        <TouchableOpacity 
-           style={styles.headerBackButton}
+        <TouchableOpacity
+          style={styles.headerBackButton}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="chevron-back" size={24} color="#000000" />
         </TouchableOpacity>
-         <Text style={styles.headerTitle}>Postcards</Text>
+        <Text style={styles.headerTitle}>Postcards</Text>
       </View>
 
       {/* Search bar area */}
       <View style={styles.headerDivider} />
- 
-        {/* Search bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons
-            name="search"
-            size={18}
-            color="#8E8E93"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search..."
-            placeholderTextColor="#8E8E93"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
+
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons
+          name="search"
+          size={18}
+          color="#8E8E93"
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search..."
+          placeholderTextColor="#8E8E93"
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
 
       {/* Icon row in header */}
-         <View style={styles.iconRow}>
+      <View style={styles.iconRow}>
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="people" size={20} color="#000000" />
         </TouchableOpacity>
@@ -178,11 +166,9 @@ const groupedEvents = useMemo(() => {
 
       {/* rest of page */}
 
-
       {/* Event list */}
       <ScrollView>
-
-          {/* Live card */}
+        {/* Live card */}
         {/*Live Card - current time is between start and end time */}
         <Text style={styles.sectionHeader}>Happening Now</Text>
         {liveEvent && (
@@ -190,15 +176,17 @@ const groupedEvents = useMemo(() => {
             {/* Divider */}
             <TouchableOpacity
               style={styles.liveCard}
-              onPress={() => 
+              onPress={() =>
                 navigation.navigate("PostcardEventScreen", {
                   event: liveEvent,
                 })
               }
-              >
-              <Image source={{uri: liveEvent.media }}
-              style={styles.liveCardImage}/>
-               <View style={styles.liveCardTextContainer}>
+            >
+              <Image
+                source={{ uri: liveEvent.media }}
+                style={styles.liveCardImage}
+              />
+              <View style={styles.liveCardTextContainer}>
                 <Card.Title style={styles.liveCardTitle}>
                   {liveEvent.title}
                 </Card.Title>
@@ -214,10 +202,10 @@ const groupedEvents = useMemo(() => {
                 </Text>
               </View>
             </TouchableOpacity>
-            </View>
-            )}
+          </View>
+        )}
 
-            {/* Event list, grouped by month */}
+        {/* Event list, grouped by month */}
         {groupedEvents.map((section) => (
           <View key={section.title}>
             <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -268,14 +256,14 @@ const groupedEvents = useMemo(() => {
             </View>
           </View>
         ))}
-
-
       </ScrollView>
 
       <FAB
-        onPress={() =>
-          navigation.navigate("PostcardEventScreen")
-        }
+        onPress={() => {
+          navigation.navigate("PostcardCreateEventScreen", {
+            onCreated: refreshEvents,
+          });
+        }}
         style={styles.addButton}
         visible={true}
         icon={<Ionicons name="add" size={28} color="white" />}
@@ -311,8 +299,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 5,
     fontSize: 40,
-    fontWeight: '800',
-    color: '#000000',
+    fontWeight: "800",
+    color: "#000000",
   },
   friends: {
     position: "absolute",
@@ -349,10 +337,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   headerBackButton: {
-    position: 'absolute',
+    position: "absolute",
     left: 16,
     padding: 4,
   },
@@ -368,33 +356,33 @@ const styles = StyleSheet.create({
 //----------------------------
   // Search bar
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E5E5EA',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E5E5EA",
     borderRadius: 10,
     marginHorizontal: 16,
     martinTop: 10,
     paddingHorizontal: 10,
     height: 40,
-    width: '90%',
+    width: "90%",
   },
   searchIcon: {
     marginRight: 6,
-    color: '#8E8E93',
+    color: "#8E8E93",
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000000',
+    color: "#000000",
   },
   searchScanIcon: {
     marginLeft: 6,
-    color: '#8E8E93',
+    color: "#8E8E93",
   },
  //----------------------------
 //Icon row (people / contact / location / add)
   iconRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -402,9 +390,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#E5E5EA",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 10,
   },
  //----------------------------
@@ -440,53 +428,53 @@ const styles = StyleSheet.create({
   },
   liveCardText: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   liveCardTitle: {
     textAlign: "left",
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginBottom: 2,
   },
   liveCardDate: {
     fontSize: 13,
-    color: '#E9D5FF',
+    color: "#E9D5FF",
     marginBottom: 2,
   },
   liveCardDescription: {
     fontSize: 13,
-    color: '#E9D5FF',
+    color: "#E9D5FF",
   },
 //----------------------------
   //lists
     listRow: {
     backgroundColor: "#FFFFFF",
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#c6c5c5',
   },
   listCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     marginHorizontal: 16,
     marginTop: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   listRowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5EA',
-    marginLeft: 72, 
+    backgroundColor: "#E5E5EA",
+    marginLeft: 72,
   },
   listImage: {
     width: 70,
     height: 70,
     borderRadius: 35,
     marginRight: 12,
-    backgroundColor: '#D1D1D6',
+    backgroundColor: "#D1D1D6",
   },
   listText: {
     flex: 1,
@@ -494,17 +482,17 @@ const styles = StyleSheet.create({
   listTitle: {
     textAlign: "left",
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: "600",
+    color: "#000000",
     marginBottom: 2,
   },
   listDescription: {
     fontSize: 13,
-    color: '#000000',
+    color: "#000000",
   },
   listDate: {
     fontSize: 13,
-    color: '#3C3C43',
+    color: "#3C3C43",
     opacity: 0.7,
     marginBottom: 2,
   },
@@ -522,13 +510,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2F87F5', // blue
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#2F87F5", // blue
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6, // Android shadow
-  }
+  },
 });
