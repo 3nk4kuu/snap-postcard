@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     right: 30,
   },
   EventScreen: {
-    marginTop: 60,
+    marginTop: 0,
     height: "100%",
   },
   //----------------------------
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 20,
-    paddingTop: 20,
+    paddingTop: 70,
     backgroundColor: '#FFFFFF',
   },
   headerBackButton: {
