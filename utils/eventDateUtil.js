@@ -18,7 +18,6 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_INITIALS = ["S", "M", "T", "W", "T", "F", "S"];
 
 const HOUR_IN_MS = 60 * 60 * 1000;
-const localDateAdded = toLocalTimestamp(new Date());
 
 // 5:18pm -> 5:30pm, 6:49pm -> 7:00pm, 5:30pm stays 5:30pm
 function roundUpToHalfHour(date) {
@@ -207,6 +206,32 @@ function parseTypedTime(text, reference) {
   return result;
 }
 
+// "Just now" / "5m ago" / "3h ago" / "2d ago" — for story timestamps
+function timeAgo(dateString) {
+  if (!dateString) return "";
+
+  const uploadedAt = new Date(dateString).getTime();
+  const now = Date.now();
+
+  if (Number.isNaN(uploadedAt)) {
+    console.log("Invalid date_added:", dateString);
+    return "";
+  }
+
+  const seconds = Math.max(0, Math.floor((now - uploadedAt) / 1000));
+
+  if (seconds < 60) return "Just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 function buildMonthGrid(viewDate) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -247,5 +272,6 @@ export {
   formatClock,
   formatRangeSummary,
   parseTypedTime,
+  timeAgo,
   buildMonthGrid,
 };
