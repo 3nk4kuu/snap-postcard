@@ -108,7 +108,7 @@ export default function App() {
         <Stack.Screen
           name="Postcard"
           component={PostcardHubScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
