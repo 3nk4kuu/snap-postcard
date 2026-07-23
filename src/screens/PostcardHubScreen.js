@@ -99,7 +99,7 @@ export default function PostCardHubScreen({ title, navigation }) {
   }, [filteredEvents]);
 
   // all events excluding the live event
-const AllEvents = useMemo(() => {
+const allEvents = useMemo(() => {
   return filteredEvents.filter((event) => event.id !== liveEvent?.id);
 }, [filteredEvents, liveEvent]);
 
@@ -107,21 +107,30 @@ const AllEvents = useMemo(() => {
 const upcomingEvents = useMemo(() => {
   const now = new Date();
 
-  return filteredEvents.filter((event) => {
+  return allEvents.filter((event) => {
     const start = new Date(event.start_datetime);
 
     return start > now && event.id !== liveEvent?.id;
   });
-}, [filteredEvents, liveEvent]);
+}, [allEvents, liveEvent]);
 
 //all past events from allEvents
+const pastEvents = useMemo(() => {
+  const now = new Date();
+
+  return allEvents.filter((event) => {
+    const end = new Date(event.end_datetime);
+
+    return end < now;
+  });
+}, [allEvents]);
 
 
   // Group all events by month
-  const groupedEvents = useMemo(() => {
+  const groupedUpcomingEvents = useMemo(() => {
     const groups = {};
 
-    AllEvents.forEach((event) => {
+    upcomingEvents.forEach((event) => {
       const month = new Date(event.start_datetime).toLocaleString("default", {
         month: "long",
         year: "numeric",
@@ -141,7 +150,35 @@ const upcomingEvents = useMemo(() => {
           (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
         ),
       }));
-  }, [AllEvents]);
+  }, [upcomingEvents]);
+
+
+  const groupedPastEvents = useMemo(() => {
+    const groups = {};
+
+    pastEvents.forEach((event) => {
+      const month = new Date(event.start_datetime).toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      });
+
+      if (!groups[month]) {
+        groups[month] = [];
+      }
+      groups[month].push(event);
+    });
+
+    return Object.entries(groups)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .map(([title, data]) => ({
+        title,
+        data: data.sort(
+          (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
+        ),
+      }));
+  }, [pastEvents]);
+
+
 
   return (
     // entire screen
@@ -238,10 +275,10 @@ const upcomingEvents = useMemo(() => {
             </TouchableOpacity>
           </View>
         )}
-        
 
-        {/* Event list, grouped by month */}
-        {groupedEvents.map((section) => (
+        {/* Upcoming Event list, grouped by month */}
+        <Text style={styles.sectionHeader}>Upcoming Events</Text>
+        {groupedUpcomingEvents.map((section) => (
           <View key={section.title}>
             <Text style={styles.sectionHeader}>{section.title}</Text>
             <View style={styles.listCard}>
@@ -295,6 +332,63 @@ const upcomingEvents = useMemo(() => {
             </View>
           </View>
         ))}
+        <Text style={styles.sectionHeader}>Past Hangouts</Text>
+        {/* past events grouped by month */}
+        {groupedPastEvents.map((section) => (
+          <View key={section.title}>
+            <Text style={styles.sectionHeader}>{section.title}</Text>
+            <View style={styles.listCard}>
+              {section.data.map((event, index) => (
+                <View key={event.id}>
+                  <TouchableOpacity
+                    style={styles.listRow}
+                    onPress={() =>
+                      navigation.navigate("PostCardEventScreen", { event })
+                    }
+                  >
+                    <Image
+                      source={{ uri: event.media }}
+                      style={styles.listImage}
+                    />
+                    <View style={styles.listText}>
+                      <Card.Title style={styles.listTitle}>
+                        {event.title}
+                      </Card.Title>
+                      <Text style={styles.listDate}>
+                      {formatMonthDay(event.start_datetime)} {" "}
+                      </Text>
+                      <Text style={styles.listDate}>
+                        {formatTime(event.start_datetime)} –{" "}
+                        {formatTime(event.end_datetime)}
+                      </Text>
+                      <Text style={styles.listDescription}>
+                        {event.status}
+                      </Text>
+                      
+    
+                      <Text style={styles.listDescription}>{event.attending}</Text>
+                    </View>
+                    {/* edit button */}
+                      {/* <TouchableOpacity
+                        style={styles.listMenuButton}
+                        onPress={() => navigation.navigate("PostcardEventScreen", {event})}>
+                        <Ionicons
+                            name="ellipsis-horizontal"
+                            size={20}
+                            color={styles.listMenuDots.color}
+                          />
+                        </TouchableOpacity> */}
+                  </TouchableOpacity>
+                  {index < section.data.length - 1 && (
+                    <View style={styles.listRowDivider} />
+                  )}
+                
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+
       </ScrollView>
 
       <FAB
@@ -446,7 +540,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginHorizontal: 16,
     marginTop: 18,
-    marginBottom: 10,
+    marginBottom: 5,
   },
 
  
