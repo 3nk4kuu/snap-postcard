@@ -622,10 +622,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                 <Pressable
                     style={styles.actionPill}
                     onPress={() =>
-                        navigation?.navigate?.("UserTab", {
-                            screen: "Chat",
-                            params: { event },
-                        })
+                        navigation?.navigate?.("EventChat", { event })
                     }
                 >
                     <Text style={styles.actionText}>Open chat</Text>

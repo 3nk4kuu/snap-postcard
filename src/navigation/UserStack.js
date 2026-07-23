@@ -1,8 +1,5 @@
 import { NavigationContainer } from "@react-navigation/native";
-import {
-  createStackNavigator,
-  TransitionPresets,
-} from "@react-navigation/stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import UserTab from "./UserTab";
 import ConversationScreen from "../screens/ConversationScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -16,8 +13,9 @@ import MemoryScreen from "../screens/MemoryScreen";
 import EventScreen from "../screens/EventScreen"; //New component by Sona and Christian
 import PostcardHubScreen from "../screens/PostcardHubScreen.js";
 import PostCardEventScreen from "../screens/PostcardEventScreen.js";
-import PostcardCreateEventScreen from "../screens/PostcardCreateEventScreen.js";
 import MapScreen from "../screens/MapScreen"; // reused for the dedicated event-map view below
+import EventChatScreen from "../screens/EventChatScreen";
+import PostcardCreateEventScreen from "../screens/PostcardCreateEventScreen";
 
 const Stack = createStackNavigator();
 
@@ -57,20 +55,9 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="PostcardCreateEventScreen"
-          component={PostcardCreateEventScreen}
-          options={{
-            headerShown: false,
-            ...TransitionPresets.ModalSlideFromBottomIOS,
-          }}
-        />
-        <Stack.Screen
           name="PostCardEventScreen"
           component={PostCardEventScreen}
-          options={{
-            headerShown: false,
-            title: "Event Details",
-          }}
+          options={{ headerShown: false }}
         />
         {/* Dedicated event-location map view. Lives at the top level of the
             stack (not inside UserTab's tab navigator), so:
@@ -84,6 +71,22 @@ export default function App() {
             headerShown: true,
             title: "Location",
           }}
+        />
+        {/* Per-event chat. headerShown: false — it renders its own custom
+            header (back button + "{event.title} Chat"), same pattern as
+            PostCardEventScreen and EventMap. */}
+        <Stack.Screen
+          name="EventChat"
+          component={EventChatScreen}
+          options={{ headerShown: false }}
+        />
+        {/* Create AND edit an event — PostCardEventScreen navigates here
+            with { eventToEdit, onSaved } for editing, or it's opened blank
+            for creating a new event. Also renders its own header. */}
+        <Stack.Screen
+          name="PostcardCreateEventScreen"
+          component={PostcardCreateEventScreen}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="MemoryScreen"
@@ -108,12 +111,7 @@ export default function App() {
         <Stack.Screen
           name="Postcard"
           component={PostcardHubScreen}
-          options={{ headerShown: false }}
-        />
-         <Stack.Screen
-          name="PostcardCreateEvent"
-          component={PostcardCreateEventScreen}
-          options={{ headerShown: false }}
+          options={{ headerShown: true }}
         />
       </Stack.Navigator>
     </NavigationContainer>
