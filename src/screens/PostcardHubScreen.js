@@ -15,6 +15,7 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
+  const [media, setMedia] = useState([]); //for setting images for story rendering in list 
 
  //need to only show event by if attending or not
 //need to pull media by story type
@@ -29,29 +30,27 @@ export default function PostCardHubScreen({ title, navigation }) {
       return;
       }
 
-
       const { data, error } = await supabase.
       from("events")
       .select(`*, 
-        event_media!event_media_event_fkey(media, media_type), 
+        event_media!event_media_event_fkey(media, date_added), 
         invited!invited_event_fkey!inner(id, status)`)
-      .eq("event_media.media_type", "story")
       .eq("invited.user", user.id)
       .in("invited.status", ["yes", "maybe"]);
 
        //Based on "profiles" "id", check if attending status in "invited" to "event" is "yes" or "maybe"
-
-  
+       
       if (error) {
         console.error("Error fetching data:", error);
       } else {
+
         const merged = data.map((event) => ({
           ...event,
-          media: event.event_media?.[0]?.media ?? null, //if event_media exists, get first item's iamge url
+          media: event.event_media?.[event.event_media.length -1]?.media ?? null, //if event_media exists, get last item's iamge url (latest)
           status: event.invited?.[0]?.status ?? null,
           role: event.invited?.[0]?.role ?? null,
         }));
-
+        console.log("Merged:", merged[0].event_media);
         setEvents(merged);
       }
     } catch (error) {
