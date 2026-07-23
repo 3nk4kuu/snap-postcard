@@ -54,6 +54,10 @@ export default function App() {
         <Stack.Screen
           name="PostCardEventScreen"
           component={PostCardEventScreen}
+          options={{
+            headerShown: true,
+            title: "Event Details" 
+          }}
         />
         <Stack.Screen
           name="MemoryScreen"

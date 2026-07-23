@@ -16,7 +16,7 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false);
   const [events, setEvents] = useState([]);
 
-  //const [search, setSearch] = useState(""); //for setting search 
+  const [search, setSearch] = useState(""); //for setting search 
   //const [filteredData, setFilteredData] = useState(data); //for search results
 
 
@@ -36,6 +36,7 @@ export default function PostCardHubScreen({ title, navigation }) {
    
     const now = new Date();
 
+    //make this query select style 
     const liveEvent = events.find((event) => {
     const start = new Date(event.start_datetime);
     const end = new Date(event.end_datetime);
@@ -67,33 +68,43 @@ export default function PostCardHubScreen({ title, navigation }) {
 
 
   return (
+    // entire screen
     <View style={styles.EventScreen}>
       {/* Header */}
       <View style={styles.header}>
-          <View styles={styles.searchBar}>
-            <TextInput styles={styles.searchInput}> Input text here
-            </TextInput>
-          </View>
+          {/* Search bar */}
+          <Text style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={18}
+                color="#8E8E93"
+                style={styles.searchIcon}
+              /> 
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search"
+                placeholderTextColor="#8E8E93"
+                onChangeText={setSearch}
+              />
+            </Text>
           {/*Header icons */}
-            <View style={styles.headerIcons}>
-              <TouchableOpacity>
-              <Ionicons name="calendar" size={25}  />
-              </TouchableOpacity>
-              <TouchableOpacity>
-              <Ionicons name="videocam" size={25} />
-              </TouchableOpacity>
-              <TouchableOpacity>
-              <Ionicons name="call" size={23} />
-              </TouchableOpacity>
-            </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity>
+            <Ionicons name="videocam" size={25} />
+            </TouchableOpacity>
+            <TouchableOpacity>
+            <Ionicons name="call" size={23} />
+            </TouchableOpacity>
+          </View>
       </View>
-      <Text styles={styles.listTitle} > Happening Now
-      </Text>
+      <Text styles={styles.sectionHeader} > Hangouts </Text>
+
+      <Text styles={styles.sectionHeader} > Happening Now</Text>
 
       {/*Divider here for events that are events currently happening right now}
 
       {/*Live Card - current time is between start and end time */}
-      {liveEvent && (
+      {/* {liveEvent && (
         <View style={styles.liveCard}>
         <TouchableOpacity>
           <Text style={styles.liveCardImage}> {liveEvent.media} </Text>
@@ -106,14 +117,13 @@ export default function PostCardHubScreen({ title, navigation }) {
           <Text style={styles.listDescription}> {liveEvent.description} </Text>
         </TouchableOpacity>
       </View>
-      )}
+      )} */}
       
-      
+            <Text styles={styles.sectionHeader} > JULY </Text>
       {/* divider for events this month */}
       {/* Event list */}
       <ScrollView>
         <View style={styles.Events}>
-          <Text> </Text>
           {events.map((event) => (
             <TouchableOpacity
             styles={styles.listCard}
@@ -155,7 +165,7 @@ export default function PostCardHubScreen({ title, navigation }) {
           refreshEvents();
         }}
       />
-    </View>
+  </View>
     
   );
 }
@@ -191,7 +201,9 @@ const styles = StyleSheet.create({
     textAlign: "left",
     marginTop: 8,
     marginBottom: 5,
-    fontSize: 15,
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#000000',
   },
   friends: {
     position: "absolute",
@@ -224,10 +236,16 @@ const styles = StyleSheet.create({
   //---------------------
     header: {
     flexDirection: 'row',
+    flexwrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',
+  },
+    headerIcons: {
+    marginTop: 4,
+    flexDirection: "row",
+    gap: 18,
   },
   headerBackButton: {
     position: 'absolute',
@@ -248,11 +266,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E5E5EA',
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 10,
-    height: 36,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    height: 40,
+    width: '90%',
   },
   searchIcon: {
     marginRight: 6,
@@ -286,13 +303,15 @@ const styles = StyleSheet.create({
  
   // Section headers ("Happening Now", "July 2026", etc.)
   sectionHeader: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     color: '#000000',
     marginHorizontal: 16,
     marginTop: 18,
     marginBottom: 10,
   },
+  //----------------------
+ 
  //------------------------
   // "Happening Now" highlighted card
   liveCard: {
