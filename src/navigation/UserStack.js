@@ -1,5 +1,8 @@
 import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import {
+  createStackNavigator,
+  TransitionPresets,
+} from "@react-navigation/stack";
 import UserTab from "./UserTab";
 import ConversationScreen from "../screens/ConversationScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -13,6 +16,7 @@ import MemoryScreen from "../screens/MemoryScreen";
 import EventScreen from "../screens/EventScreen"; //New component by Sona and Christian
 import PostcardHubScreen from "../screens/PostcardHubScreen.js";
 import PostCardEventScreen from "../screens/PostcardEventScreen.js";
+import PostcardCreateEventScreen from "../screens/PostcardCreateEventScreen.js";
 import MapScreen from "../screens/MapScreen"; // reused for the dedicated event-map view below
 
 const Stack = createStackNavigator();
@@ -53,11 +57,19 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="PostcardCreateEventScreen"
+          component={PostcardCreateEventScreen}
+          options={{
+            headerShown: false,
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
           name="PostCardEventScreen"
           component={PostCardEventScreen}
           options={{
             headerShown: true,
-            title: "Event Details" 
+            title: "Event Details",
           }}
         />
         {/* Dedicated event-location map view. Lives at the top level of the
@@ -96,6 +108,11 @@ export default function App() {
         <Stack.Screen
           name="Postcard"
           component={PostcardHubScreen}
+          options={{ headerShown: false }}
+        />
+         <Stack.Screen
+          name="PostcardCreateEvent"
+          component={PostcardCreateEventScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
