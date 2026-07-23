@@ -1,47 +1,30 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  Dimensions,
-  Pressable,
-  Modal,
-  TextInput,
-  ScrollView,
-  Switch,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Keyboard,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  Animated,
-  PanResponder,
-  useWindowDimensions,
+    View,
+    Text,
+    Image,
+    TouchableOpacity,
+    StyleSheet,
+    FlatList,
+    Dimensions,
+    Pressable,
+    Modal,
 } from "react-native";
 import { SegmentedButtons } from "react-native-paper";
 import { supabase } from "../../utils/hooks/supabase";
 import { getEventMedia } from "../../utils/eventMediaUtil";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
     formatEventDate,
     formatTime,
 } from "../../utils/dateFormatUtil";
 import { Card, FAB } from "@rn-vui/themed";
-// NOTE: requires `expo-image-picker` — if not installed yet:
-//   npx expo install expo-image-picker
 import * as ImagePicker from "expo-image-picker";
-// NOTE: requires `expo-file-system` (usually already in Expo projects) and
-// `base64-arraybuffer` — if not installed: npm install base64-arraybuffer
-// on newer Expo SDKs (52+), the old readAsStringAsync/EncodingType API
-// moved to this legacy subpath
 import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
-// NOTE: requires `expo-media-library` — if not installed yet:
-//   npx expo install expo-media-library
+
 import * as MediaLibrary from "expo-media-library";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // make card grid
 const { width } = Dimensions.get("window");
@@ -54,6 +37,8 @@ const STORY_FOLDER = "stories";
 
 
 export default function PostCardEventScreen({ route, navigation }) {
+    const insets = useSafeAreaInsets();
+
     // Grab the event object passed from the hub screen
     const initialEvent = route?.params?.event;
 
@@ -68,8 +53,14 @@ export default function PostCardEventScreen({ route, navigation }) {
     const [rsvpValue, setRsvpValue] = useState("");
     const [isSavingRsvp, setIsSavingRsvp] = useState(false);
 
-    // current logged-in user (needed so RSVP knows *whose* row to upsert)
+    // current logged-in user (needed so RSVP knows *whose* row to upsert,
+    // and to check if they're the host for the Edit option)
     const [currentUserId, setCurrentUserId] = useState(null);
+
+    // only the host should see "Edit event" in the FAB menu
+    const isHost = Boolean(
+        currentUserId && event?.host && currentUserId === event.host
+    );
 
     // FAB action menu (Edit / Add to Story / Add to Media)
     const [menuOpen, setMenuOpen] = useState(false);
@@ -462,7 +453,6 @@ export default function PostCardEventScreen({ route, navigation }) {
         no: "#FD2646",    // red
     };
 
-
     // Header element containing top event details
     const renderHeader = () => (
         <View style={styles.headerContainer}>
@@ -656,23 +646,36 @@ export default function PostCardEventScreen({ route, navigation }) {
             : eventMedia;
 
     return (
-
         <View style={styles.screenRoot}>
-            <View style={styles.header}>
+            {/* Custom header — replaces the default React Navigation stack
+                header for this screen. Shows the event's own title, with a
+                back button. NOTE: make sure this screen's Stack.Screen entry
+                in App.js has headerShown: false, otherwise you'll get two
+                headers stacked on top of each other. */}
+            <View style={[styles.header, { paddingTop: insets.top + 8, height: 56 + insets.top }]}>
                 <TouchableOpacity
-                    style={styles.headerBack}
-                    onPress={() => navigation.goBack()}
+                    style={[styles.headerBack, { top: insets.top + 8 }]}
+                    onPress={() => {
+                        if (navigation.canGoBack()) {
+                            navigation.goBack();
+                        } else {
+                            // no back history (e.g. opened directly / deep link) —
+                            // fall back to the hub screen instead of doing nothing
+                            navigation.navigate("Postcard");
+                        }
+                    }}
                     hitSlop={8}
                 >
-                    <Ionicons name="chevron-back" size={32} color="#000000" />
+                    <Ionicons name="chevron-back" size={28} color="#000000" />
                 </TouchableOpacity>
 
-                <Text style={styles.headerTitle}>
-                    {isEditMode ? "Edit Hangout" : "New Hangout"}
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                    {event?.title || "Event Details"}
                 </Text>
             </View>
 
             <View style={styles.headerDivider} />
+
             <FlatList
                 style={styles.container}
                 data={gridData}
@@ -716,23 +719,25 @@ export default function PostCardEventScreen({ route, navigation }) {
                 }
             />
 
-            {/* FAB action menu — Edit / Add to Story / Add to Media.
+            {/* FAB action menu — Edit (host only) / Add to Story / Add to Media.
                 Lives outside the FlatList now so it stays pinned to the
                 bottom-right of the screen instead of scrolling with content. */}
             {menuOpen && (
                 <View style={styles.fabMenu}>
-                    <Pressable
-                        style={styles.fabMenuItem}
-                        onPress={() => {
-                            setMenuOpen(false);
-                            navigation.navigate("PostcardCreateEventScreen", {
-                                eventToEdit: currentEvent,
-                                onSaved: refreshEvents,
-                            });
-                        }}
-                    >
-                        <Text style={styles.fabMenuText}>Edit event</Text>
-                    </Pressable>
+                    {isHost && (
+                        <Pressable
+                            style={styles.fabMenuItem}
+                            onPress={() => {
+                                setMenuOpen(false);
+                                navigation.navigate("PostcardCreateEventScreen", {
+                                    eventToEdit: currentEvent,
+                                    onSaved: refreshEvents,
+                                });
+                            }}
+                        >
+                            <Text style={styles.fabMenuText}>Edit event</Text>
+                        </Pressable>
+                    )}
                     <Pressable
                         style={styles.fabMenuItem}
                         onPress={() => pickAndUpload("photo", "library")}
@@ -963,6 +968,28 @@ const styles = StyleSheet.create({
     },
     columnWrapper: {
         justifyContent: "space-between",
+    },
+    header: {
+        height: 56,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 48, // leave room for the back button on the left
+        backgroundColor: "#FFF",
+    },
+    headerBack: {
+        position: "absolute",
+        left: 12,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#000000",
+    },
+    headerDivider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: "#D1D1D6",
     },
     headerContainer: {
         marginBottom: 16,
