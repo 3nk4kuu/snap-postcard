@@ -18,12 +18,7 @@ import {
 } from "../../utils/dateFormatUtil";
 import { Card, FAB } from "@rn-vui/themed";
 import UpdateEvent from "../components/EditEvent";
-// NOTE: requires `expo-image-picker` — if not installed yet:
-//   npx expo install expo-image-picker
 import * as ImagePicker from "expo-image-picker";
-// NOTE: requires `expo-file-system` (usually already in Expo projects) and
-// `base64-arraybuffer` — if not installed: npm install base64-arraybuffer
-// on newer Expo SDKs (52+), the old readAsStringAsync/EncodingType API
 // moved to this legacy subpath
 import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
@@ -32,17 +27,17 @@ import { decode } from "base64-arraybuffer";
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
 
-// Actual Supabase Storage setup (confirmed from dashboard)
+// supabase Storage setup
 const STORAGE_BUCKET = "event-media";
 const MEDIA_FOLDER = "uploaded-media";
 const STORY_FOLDER = "stories";
 
 
 export default function PostCardEventScreen({ route, navigation }) {
-    // Grab the event object passed from the hub screen
+    // grab event object passed from the hub screen
     const initialEvent = route?.params?.event;
 
-    // Live copy of the event we're viewing — starts as whatever got passed
+    // live copy of the event we're viewing — starts as whatever got passed
     // in via navigation, but gets refreshed from the DB after an edit saves.
     const [currentEvent, setCurrentEvent] = useState(initialEvent);
     const event = currentEvent; // keep the rest of the file's `event.` refs working
@@ -272,10 +267,7 @@ export default function PostCardEventScreen({ route, navigation }) {
         ]);
     };
 
-    // shared upload flow for story/media, from either the library or the
-    // device camera (photo or video). `source` is "library" | "camera",
-    // `assetKind` is "image" | "video" (video only really makes sense with
-    // the camera option, but the param stays generic in case that changes).
+    // shared upload flow for story/media
     const pickAndUpload = async (mediaType, source = "library", assetKind = "image") => {
         console.log("pickAndUpload called:", { mediaType, source, assetKind });
         setMenuOpen(false);
@@ -320,10 +312,6 @@ export default function PostCardEventScreen({ route, navigation }) {
         const folder = mediaType === "story" ? STORY_FOLDER : MEDIA_FOLDER;
         const filePath = `${folder}/${event.id}_${Date.now()}.${fileExt}`;
 
-        // derive contentType from the actual extension rather than trusting
-        // file.mimeType — that can come back undefined on some platforms,
-        // and a mismatched Content-Type (e.g. saying jpeg for real png
-        // bytes) makes iOS's image decoder fail with a generic download error
         const extToMimeType = {
             jpg: "image/jpeg",
             jpeg: "image/jpeg",
