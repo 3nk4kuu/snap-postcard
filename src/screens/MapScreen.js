@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import MapView, { Marker } from "react-native-maps";
 import {
   StyleSheet,
@@ -9,18 +9,37 @@ import {
   TouchableOpacity,
   Pressable,
 } from "react-native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as Location from "expo-location";
 
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-export default function MapScreen({ navigation }) {
-  const tabBarHeight = useBottomTabBarHeight();
+export default function MapScreen({ navigation, route }) {
+  // useBottomTabBarHeight() throws when not inside a Bottom Tab Navigator.
+  // MapScreen is now mounted two ways: as the "Map" tab (inside UserTab,
+  // context available) and as the standalone "EventMap" stack screen
+  // (outside any tab navigator, context absent). Reading the context
+  // directly avoids the throw and just falls back to 0 in the second case.
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const insets = useSafeAreaInsets();
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // event passed in from PostCardEventScreen's "View on map" button
+  const event = route?.params?.event;
+
+  // when true, this screen is the focused single-event view (pushed as
+  // "EventMap" on the root stack) rather than the general Map tab — in
+  // that mode we hide the extra footer buttons, since the header back
+  // arrow is the only navigation the user needs here
+  const isEventFocusedView = !!event;
+
+  // events only stores a text address (event.location), not lat/lng —
+  // this holds the geocoded coordinates once we look the address up
+  const [eventCoords, setEventCoords] = useState(null);
+  const [geocodeError, setGeocodeError] = useState(null);
 
   const [currentRegion, setCurrentRegion] = useState({
     latitude: 34.0211573,
@@ -39,14 +58,48 @@ export default function MapScreen({ navigation }) {
 
       let location = await Location.getCurrentPositionAsync({});
       setLocation(location);
-      setCurrentRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
+
+      // only recenter on the user's own location if we don't already
+      // have an event to focus on
+      if (!event?.location) {
+        setCurrentRegion({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      }
     })();
   }, []);
+
+  // geocode the event's text address into real coordinates for the marker
+  useEffect(() => {
+    if (!event?.location) return;
+
+    const geocodeEvent = async () => {
+      try {
+        const results = await Location.geocodeAsync(event.location);
+        if (results.length === 0) {
+          setGeocodeError("Could not find coordinates for this address");
+          return;
+        }
+
+        const { latitude, longitude } = results[0];
+        setEventCoords({ latitude, longitude });
+        setCurrentRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        });
+      } catch (err) {
+        console.error("Error geocoding event location:", err);
+        setGeocodeError("Error looking up this address");
+      }
+    };
+
+    geocodeEvent();
+  }, [event?.location]);
 
   let text = "Waiting...";
   text = JSON.stringify(location);
@@ -58,7 +111,21 @@ export default function MapScreen({ navigation }) {
         region={currentRegion}
         showsUserLocation={true}
         showsMyLocationButton={true}
-      />
+      >
+        {eventCoords && (
+          <Marker
+            coordinate={eventCoords}
+            title={event?.title}
+            description={event?.location}
+          >
+            <Image
+              source={require("../../assets/event-badge.png")}
+              style={styles.eventMarkerImage}
+              resizeMode="contain"
+            />
+          </Marker>
+        )}
+      </MapView>
 
       <View style={[styles.mapFooter]}>
         <View style={styles.locationContainer}>
@@ -73,52 +140,54 @@ export default function MapScreen({ navigation }) {
             <Ionicons name="navigate" size={15} color="black" />
           </TouchableOpacity>
         </View>
-        <View style={[styles.bitmojiContainer, styles.shadow]}>
-          <Pressable
-            onPress={() => {
-              navigation.navigate("Event");
-            }}
-          >
-            <View style={styles.myBitmoji}>
-              <Ionicons name="calendar-outline" size={50} color="gray" />
-              <View style={styles.bitmojiTextContainer}>
-                <Text style={styles.bitmojiText}>Events</Text>
+        {!isEventFocusedView && (
+          <View style={[styles.bitmojiContainer, styles.shadow]}>
+            <Pressable
+              onPress={() => {
+                navigation.navigate("Event");
+              }}
+            >
+              <View style={styles.myBitmoji}>
+                <Ionicons name="calendar-outline" size={50} color="gray" />
+                <View style={styles.bitmojiTextContainer}>
+                  <Text style={styles.bitmojiText}>Events</Text>
+                </View>
               </View>
-            </View>
-          </Pressable>
-          {/*Navigation to postcard hub screen */}
-          <Pressable
-            onPress={() => {
-              navigation.navigate("Postcard");
-            }}
-          >
-            <View style={styles.myBitmoji}>
-              <Ionicons name="calendar-outline" size={50} color="gray" />
-              <View style={styles.bitmojiTextContainer}>
-                <Text style={styles.bitmojiText}>Postcard</Text>
+            </Pressable>
+            {/*Navigation to postcard hub screen */}
+            <Pressable
+              onPress={() => {
+                navigation.navigate("Postcard");
+              }}
+            >
+              <View style={styles.myBitmoji}>
+                <Ionicons name="calendar-outline" size={50} color="gray" />
+                <View style={styles.bitmojiTextContainer}>
+                  <Text style={styles.bitmojiText}>Postcard</Text>
+                </View>
               </View>
-            </View>
-          </Pressable>
+            </Pressable>
 
-          <View style={styles.places}>
-            <Image
-              style={styles.bitmojiImage}
-              source={require("../../assets/snapchat/personalBitmoji.png")}
-            />
-            <View style={styles.bitmojiTextContainer}>
-              <Text style={styles.bitmojiText}>Places</Text>
+            <View style={styles.places}>
+              <Image
+                style={styles.bitmojiImage}
+                source={require("../../assets/snapchat/personalBitmoji.png")}
+              />
+              <View style={styles.bitmojiTextContainer}>
+                <Text style={styles.bitmojiText}>Places</Text>
+              </View>
+            </View>
+            <View style={styles.myFriends}>
+              <Image
+                style={styles.bitmojiImage}
+                source={require("../../assets/snapchat/personalBitmoji.png")}
+              />
+              <View style={styles.bitmojiTextContainer}>
+                <Text style={styles.bitmojiText}>Friends</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.myFriends}>
-            <Image
-              style={styles.bitmojiImage}
-              source={require("../../assets/snapchat/personalBitmoji.png")}
-            />
-            <View style={styles.bitmojiTextContainer}>
-              <Text style={styles.bitmojiText}>Friends</Text>
-            </View>
-          </View>
-        </View>
+        )}
       </View>
     </View>
   );
@@ -144,6 +213,10 @@ const styles = StyleSheet.create({
   map: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+  },
+  eventMarkerImage: {
+    width: 70,
+    height: 70,
   },
   locationContainer: {
     backgroundColor: "transparent",
