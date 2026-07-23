@@ -13,6 +13,7 @@ import MemoryScreen from "../screens/MemoryScreen";
 import EventScreen from "../screens/EventScreen"; //New component by Sona and Christian
 import PostcardHubScreen from "../screens/PostcardHubScreen.js";
 import PostCardEventScreen from "../screens/PostcardEventScreen.js";
+import MapScreen from "../screens/MapScreen"; // reused for the dedicated event-map view below
 
 const Stack = createStackNavigator();
 
@@ -57,6 +58,19 @@ export default function App() {
           options={{
             headerShown: true,
             title: "Event Details" 
+          }}
+        />
+        {/* Dedicated event-location map view. Lives at the top level of the
+            stack (not inside UserTab's tab navigator), so:
+              - the bottom tab bar never renders here
+              - headerShown: true gives a native back arrow for free,
+                which pops back to PostCardEventScreen correctly */}
+        <Stack.Screen
+          name="EventMap"
+          component={MapScreen}
+          options={{
+            headerShown: true,
+            title: "Location",
           }}
         />
         <Stack.Screen
