@@ -71,6 +71,33 @@ function rsvpBadgeColors(status) {
 export default function PostCardEventScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
 
+    const timeAgo = (dateString) => {
+        if (!dateString) return "";
+
+        const postedTime = new Date(dateString).getTime();
+
+        if (Number.isNaN(postedTime)) {
+            console.log("Invalid date:", dateString);
+            return "";
+        }
+
+        const minutes = Math.max(
+            0,
+            Math.floor((Date.now() - postedTime) / 60000)
+        );
+
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes} min ago`;
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+            return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+        }
+
+        const days = Math.floor(hours / 24);
+        return `${days} day${days === 1 ? "" : "s"} ago`;
+    };
+
     // Grab the event object passed from the hub screen
     const initialEvent = route?.params?.event;
     console.log(initialEvent)
@@ -224,7 +251,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             .from("event_media")
             .select("id, event, media, media_type, date_added, posted_by, profiles:posted_by(userName, avatar)")
             .eq("event", Number(event.id))
-            .order("date_added", { ascending: true })
+            .order("date_added", { ascending: false })
             .order("id", { ascending: false });
 
         if (error) {
@@ -389,6 +416,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             });
         }
 
+
         if (result.canceled) return;
 
         const file = result.assets[0];
@@ -463,24 +491,6 @@ export default function PostCardEventScreen({ route, navigation }) {
     // for the header's circular image
     const latestStory = eventMedia.find((item) => item.media_type === "story");
 
-    // simple relative-time formatter for the story viewer ("5m ago", etc.)
-    // — no extra date library needed
-// simple relative-time formatter for the story viewer ("5m ago", etc.)
-    // — no extra date library needed
-    function timeAgo(dateString) {
-        if (!dateString) return "";
-        const seconds = Math.max(
-            0,
-            Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
-        );
-        if (seconds < 60) return "Just now";
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes}m ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
-        const days = Math.floor(hours);
-        return `${days}d ago`;
-    }
 
     // downloads a story/media URL and saves it to the device's photo
     // library. MediaLibrary.saveToLibraryAsync needs a local file URI, not
@@ -552,25 +562,29 @@ export default function PostCardEventScreen({ route, navigation }) {
                     {/* Avatars & extra attendees row */}
                     <View style={styles.avatarRow}>
                         <View style={styles.avatarStack}>
-                            {avatar.slice(0, 3).map((profile, index) => (
-                                <Image
-                                    key={profile.userName ?? index}
-                                    source={{ uri: profile.avatar }}
-                                    style={[
-                                        styles.stackedAvatar,
-                                        index > 0 && styles.overlappingAvatar,
-                                    ]}
-                                    onError={(error) => {
-                                        console.log(
-                                            "Avatar failed:",
-                                            profile.userName,
-                                            profile.avatar,
-                                            error.nativeEvent.error
-                                        );
-                                    }}
-                                />
-                            ))}
+                            {avatar
+                                .filter((profile) => profile.status === "yes")
+                                .slice(0, 3)
+                                .map((profile, index) => (
+                                    <Image
+                                        key={profile.user ?? profile.userName ?? index}
+                                        source={{ uri: profile.avatar }}
+                                        style={[
+                                            styles.stackedAvatar,
+                                            index > 0 && styles.overlappingAvatar,
+                                        ]}
+                                        onError={(error) => {
+                                            console.log(
+                                                "Avatar failed:",
+                                                profile.userName,
+                                                profile.avatar,
+                                                error.nativeEvent.error
+                                            );
+                                        }}
+                                    />
+                                ))}
                         </View>
+
 
                         {/* only the overflow gets a "+" — under three people the plain count reads better than "+ -2" */}
                         <Pressable
@@ -732,7 +746,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                 </TouchableOpacity>
 
                 <Text style={styles.headerTitle} numberOfLines={1}>
-                    { "Event Details"}
+                    {"Event Details"}
                 </Text>
             </View>
 
@@ -1177,7 +1191,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     host: {
-        fontSize: 16,
+        fontSize: 13,
         color: "#575757",
         marginTop: 6,
         marginBottom: 10,
