@@ -605,9 +605,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                 <Text style={styles.descriptionText}>{event.description}</Text>
             ) : null}
 
-            <Text style={styles.host}>
-                Hosted by: @{host}
-            </Text>
             {/* Action Buttons Row - map + chat */}
             <View style={styles.actionsRow}>
                 <Pressable
@@ -1211,7 +1208,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#3A3A3C",
         lineHeight: 18,
-        marginBottom: 10,
+        marginBottom: 14,
     },
     host: {
         fontSize: 16,
