@@ -1,4 +1,4 @@
-import React, {  useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
 import {
   View,
@@ -17,12 +17,12 @@ import { supabase } from "../../utils/hooks/supabase";
 import { formatMonthDay, formatTime } from "../../utils/dateFormatUtil";
 
 export default function PostCardHubScreen({ title, navigation }) {
-  const [visible, setVisible] = useState(false); //remove if I pull addEvent 
+  const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
-  const [search, setSearch] = useState(""); //for setting search 
+  const [search, setSearch] = useState(""); //for setting search
   //const [filteredData, setFilteredData] = useState(data); //for search results
 
-//not needed?
+  //not needed?
   // function toggleComponent() {
   //   setVisible(!visible);
   // }
@@ -36,7 +36,6 @@ export default function PostCardHubScreen({ title, navigation }) {
       //console.log("Fetch error:", error);
 
       //state variable updates for events right now, today, tomorrow, next week, this month
-    
 
       if (error) {
         console.error("Error fetching data:", error);
@@ -56,118 +55,109 @@ export default function PostCardHubScreen({ title, navigation }) {
     fetchData();
   }, []);
 
- 
+  // Search events by title or date
+  const filteredEvents = useMemo(() => {
+    if (!search.trim()) return events;
 
-// Search events by title or date
-const filteredEvents = useMemo(() => {
+    const userSearch = search.toLowerCase();
 
-  if (!search.trim()) return events;
-  
-  const userSearch = search.toLowerCase();
+    //if the there is a match to the title or date, then return that event in a filtered array
+    return events.filter((event) => {
+      const matchingTitle = event.title?.toLowerCase().includes(userSearch);
+      const matchingDate = formatMonthDay(event.start_datetime)
+        ?.toLowerCase()
+        .includes(userSearch);
 
-  //if the there is a match to the title or date, then return that event in a filtered array
-  return events.filter((event) => {
-    const matchingTitle = event.title?.toLowerCase().includes(userSearch); 
-    const matchingDate = formatMonthDay(event.start_datetime)
-      ?.toLowerCase()
-      .includes(userSearch);
+      return matchingTitle || matchingDate;
+    });
+  }, [events, search]);
 
-    return matchingTitle || matchingDate;
-  });
-}, [events, search]);
+  // Event happening right now for live card
+  const liveEvent = useMemo(() => {
+    const now = new Date();
 
+    return filteredEvents.find((event) => {
+      const start = new Date(event.start_datetime);
+      const end = new Date(event.end_datetime);
 
-// Event happening right now for live card
-const liveEvent = useMemo(() => {
-  const now = new Date();
+      return now >= start && now <= end;
+    });
+  }, [filteredEvents]);
 
-  return filteredEvents.find((event) => {
-    const start = new Date(event.start_datetime);
-    const end = new Date(event.end_datetime);
+  // all upcoming events (excluding the live event)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
 
-    return now >= start && now <= end;
-  });
-}, [filteredEvents]);
+    return filteredEvents.filter((event) => {
+      const start = new Date(event.start_datetime);
 
+      return start > now && event.id !== liveEvent?.id;
+    });
+  }, [filteredEvents, liveEvent]);
 
-// all upcoming events (excluding the live event)
-const upcomingEvents = useMemo(() => {
-  const now = new Date();
+  // Group upcoming events by month
+  const groupedEvents = useMemo(() => {
+    const groups = {};
 
-  return filteredEvents.filter((event) => {
-    const start = new Date(event.start_datetime);
+    upcomingEvents.forEach((event) => {
+      const month = new Date(event.start_datetime).toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      });
 
-    return start > now && event.id !== liveEvent?.id;
-  });
-}, [filteredEvents, liveEvent]);
-
-
-// Group upcoming events by month
-const groupedEvents = useMemo(() => {
-  const groups = {};
-
-  upcomingEvents.forEach((event) => {
-    const month = new Date(event.start_datetime).toLocaleString("default", {
-      month: "long",
-      year: "numeric",
+      if (!groups[month]) {
+        groups[month] = [];
+      }
+      groups[month].push(event);
     });
 
-    if (!groups[month]){
-      groups[month] = [];
-    }
-    groups[month].push(event);
-  });
-
-  return Object.entries(groups).sort(([a], [b]) => new Date(a) - new Date(b))
-    .map(([title, data]) => ({
-      title,
-      data: data.sort(
-        (a, b) =>
-          new Date(a.start_datetime) - new Date(b.start_datetime)
-      ),
-    }));
-}, [upcomingEvents]);
-
-
+    return Object.entries(groups)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .map(([title, data]) => ({
+        title,
+        data: data.sort(
+          (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
+        ),
+      }));
+  }, [upcomingEvents]);
 
   return (
     // entire screen
     <View style={styles.EventScreen}>
-
       {/* Header */}
       <View style={styles.header}>
         {/* back button */}
-        <TouchableOpacity 
-           style={styles.headerBackButton}
+        <TouchableOpacity
+          style={styles.headerBackButton}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="chevron-back" size={24} color="#000000" />
         </TouchableOpacity>
-         <Text style={styles.headerTitle}>Postcards</Text>
+        <Text style={styles.headerTitle}>Postcards</Text>
       </View>
 
       {/* Search bar area */}
       <View style={styles.headerDivider} />
- 
-        {/* Search bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons
-            name="search"
-            size={18}
-            color="#8E8E93"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search..."
-            placeholderTextColor="#8E8E93"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
+
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons
+          name="search"
+          size={18}
+          color="#8E8E93"
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search..."
+          placeholderTextColor="#8E8E93"
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
 
       {/* Icon row in header */}
-         <View style={styles.iconRow}>
+      <View style={styles.iconRow}>
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="people" size={20} color="#000000" />
         </TouchableOpacity>
@@ -184,11 +174,9 @@ const groupedEvents = useMemo(() => {
 
       {/* rest of page */}
 
-
       {/* Event list */}
       <ScrollView>
-
-          {/* Live card */}
+        {/* Live card */}
         {/*Live Card - current time is between start and end time */}
         {liveEvent && (
           <View style={styles.liveCard}>
@@ -196,15 +184,17 @@ const groupedEvents = useMemo(() => {
             <Text style={styles.sectionHeader}>Happening Now</Text>
             <TouchableOpacity
               style={styles.liveCard}
-              onPress={() => 
+              onPress={() =>
                 navigation.navigate("PostcardEventScreen", {
                   event: liveEvent,
                 })
               }
-              >
-              <Image source={{uri: liveEvent.media }}
-              style={styles.liveCardImage}/>
-               <View style={styles.liveCardTextContainer}>
+            >
+              <Image
+                source={{ uri: liveEvent.media }}
+                style={styles.liveCardImage}
+              />
+              <View style={styles.liveCardTextContainer}>
                 <Card.Title style={styles.liveCardTitle}>
                   {liveEvent.title}
                 </Card.Title>
@@ -217,10 +207,10 @@ const groupedEvents = useMemo(() => {
                 </Text>
               </View>
             </TouchableOpacity>
-            </View>
-            )}
+          </View>
+        )}
 
-            {/* Event list, grouped by month */}
+        {/* Event list, grouped by month */}
         {groupedEvents.map((section) => (
           <View key={section.title}>
             <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -246,7 +236,9 @@ const groupedEvents = useMemo(() => {
                         {formatTime(event.start_datetime)} –{" "}
                         {formatTime(event.end_datetime)}
                       </Text>
-                      <Text style={styles.listDescription}>{event.attending}</Text>
+                      <Text style={styles.listDescription}>
+                        {event.attending}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                   {index < section.data.length - 1 && (
@@ -257,23 +249,20 @@ const groupedEvents = useMemo(() => {
             </View>
           </View>
         ))}
-
-
       </ScrollView>
 
       <FAB
-        onPress={() =>
+        onPress={() => {
           navigation.navigate("PostcardCreateEventScreen", {
             onCreated: refreshEvents,
-          })
-        }
-        }
+          });
+        }}
         style={styles.addButton}
         visible={true}
         icon={<Ionicons name="add" size={28} color="white" />}
         color="#335fff"
       />
-      
+
       {/* not needed? Maybe needed inside event creation? */}
       {/* <AddEvent
         isVisible={visible}
@@ -282,7 +271,7 @@ const groupedEvents = useMemo(() => {
           refreshEvents();
         }}
       /> */}
-  </View>
+    </View>
   );
 }
 
@@ -312,8 +301,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 5,
     fontSize: 40,
-    fontWeight: '800',
-    color: '#000000',
+    fontWeight: "800",
+    color: "#000000",
   },
   friends: {
     position: "absolute",
@@ -377,7 +366,7 @@ const styles = StyleSheet.create({
     martinTop: 10,
     paddingHorizontal: 10,
     height: 40,
-    width: '90%',
+    width: "90%",
   },
   searchIcon: {
     marginRight: 6,
@@ -412,15 +401,15 @@ const styles = StyleSheet.create({
   // Section headers ("Happening Now", "July 2026", etc.)
   sectionHeader: {
     fontSize: 30,
-    fontWeight: '700',
-    color: '#000000',
+    fontWeight: "700",
+    color: "#000000",
     marginHorizontal: 16,
     marginTop: 18,
     marginBottom: 10,
   },
   //----------------------
- 
- //------------------------
+
+  //------------------------
   // "Happening Now" highlighted card
   liveCard: {
     flexDirection: "row",
@@ -441,7 +430,7 @@ const styles = StyleSheet.create({
   },
   liveCardText: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   liveCardTitle: {
     fontSize: 16,
@@ -461,10 +450,10 @@ const styles = StyleSheet.create({
 
   //lists
   //------------------------
-    listRow: {
+  listRow: {
     backgroundColor: "#FFFFFF",
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
@@ -473,12 +462,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 16,
     marginTop: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   listRowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5EA',
-    marginLeft: 72, 
+    backgroundColor: "#E5E5EA",
+    marginLeft: 72,
   },
   listImage: {
     width: 48,
@@ -498,7 +487,7 @@ const styles = StyleSheet.create({
   },
   listDescription: {
     fontSize: 13,
-    color: '#000000',
+    color: "#000000",
   },
   listDate: {
     fontSize: 13,
@@ -506,8 +495,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
   },
-  fab: { //floating action button
-    position: 'absolute',
+  fab: {
+    //floating action button
+    position: "absolute",
     right: 20,
     bottom: 28,
     width: 56,
