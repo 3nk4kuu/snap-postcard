@@ -7,6 +7,7 @@ import {
     FlatList,
     Dimensions,
     Pressable,
+    Modal,
 } from "react-native";
 import { SegmentedButtons } from "react-native-paper";
 import { supabase } from "../../utils/hooks/supabase";
@@ -15,19 +16,53 @@ import {
     formatEventDate,
     formatTime,
 } from "../../utils/dateFormatUtil";
+import { Card, FAB } from "@rn-vui/themed";
+import UpdateEvent from "../components/EditEvent";
+import * as ImagePicker from "expo-image-picker";
+// moved to this legacy subpath
+import * as FileSystem from "expo-file-system/legacy";
+import { decode } from "base64-arraybuffer";
 
+// make card grid
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
 
+// supabase Storage setup
+const STORAGE_BUCKET = "event-media";
+const MEDIA_FOLDER = "uploaded-media";
+const STORY_FOLDER = "stories";
+
 
 export default function PostCardEventScreen({ route, navigation }) {
-    // Grab the event object passed from the hub screen
-    const event = route?.params?.event;
+    // grab event object passed from the hub screen
+    const initialEvent = route?.params?.event;
+
+    // live copy of the event we're viewing — starts as whatever got passed
+    // in via navigation, but gets refreshed from the DB after an edit saves.
+    const [currentEvent, setCurrentEvent] = useState(initialEvent);
+    const event = currentEvent; // keep the rest of the file's `event.` refs working
 
     // Attendee count + RSVP state
     const [attendingCount, setAttendingCount] = useState(0);
     const [activeTab, setActiveTab] = useState("Stories");
     const [rsvpValue, setRsvpValue] = useState("");
+    const [isSavingRsvp, setIsSavingRsvp] = useState(false);
+
+    // current logged-in user (needed so RSVP knows *whose* row to upsert)
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+    // Edit dialog visibility
+    const [visible, setVisible] = useState(false);
+
+    // FAB action menu (Edit / Add to Story / Add to Media)
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    // Story viewer modal (opens when tapping the event image)
+    const [storyViewerVisible, setStoryViewerVisible] = useState(false);
+
+    function toggleComponent() {
+        setVisible(!visible);
+    }
 
     // Media grid state
     const [eventMedia, setEventMedia] = useState([]);
@@ -37,103 +72,346 @@ export default function PostCardEventScreen({ route, navigation }) {
     const [avatar, setAvatar] = useState([]);
     const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
 
-    // get attending count for this event
+    //Host
+    const [host, setHostName] = useState([]);
+
+    // get the currently logged-in user's id
     useEffect(() => {
-        if (!event?.id) return;
-
-        const fetchCount = async () => {
-            const { count, error } = await supabase
-                .from("invited")
-                .select("*", { count: "exact", head: true })
-                .eq("event", Number(event.id));
-
+        const fetchUser = async () => {
+            const { data, error } = await supabase.auth.getUser();
             if (error) {
-                console.error("Error fetching attending count:", error);
+                console.error("Error fetching current user:", error);
                 return;
             }
-
-            setAttendingCount(count ?? 0);
+            setCurrentUserId(data?.user?.id ?? null);
         };
+        fetchUser();
+    }, []);
 
+    // get the event row itself (title/description/start_datetime/location/host)
+    const fetchEventDetails = async () => {
+        if (!initialEvent?.id) return;
+
+        const { data, error } = await supabase
+            .from("events")
+            .select("*")
+            .eq("id", initialEvent.id)
+            .single();
+
+        if (error) {
+            console.error("Error fetching event details:", error);
+            return;
+        }
+
+        if (data) {
+            setCurrentEvent(data);
+        }
+    };
+
+    useEffect(() => {
+        fetchEventDetails();
+    }, [initialEvent?.id]);
+
+    // get host for this event
+    const fetchHost = async () => {
+        if (!event?.host) return;
+
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("userName")
+            .eq("id", event.host)
+            .single();
+
+        if (error) {
+            console.error("Error fetching host profile:", error);
+            return;
+        }
+
+        setHostName(data?.userName ?? "Unknown host");
+    };
+
+    useEffect(() => {
+        fetchHost();
+    }, [event?.host]);
+
+    // get attending count for this event
+    const fetchCount = async () => {
+        if (!event?.id) return;
+
+        const { count, error } = await supabase
+            .from("invited")
+            .select("*", { count: "exact", head: true })
+            .eq("event", Number(event.id));
+
+        if (error) {
+            console.error("Error fetching attending count:", error);
+            return;
+        }
+
+        setAttendingCount(count ?? 0);
+    };
+
+    useEffect(() => {
         fetchCount();
     }, [event?.id]);
 
     // get all media for this event (for the grid below)
-    useEffect(() => {
+    const fetchMedia = async () => {
         if (!event?.id) return;
 
-        const fetchMedia = async () => {
-            setIsLoadingMedia(true);
+        setIsLoadingMedia(true);
 
-            const { data, error } = await supabase
-                .from("event_media")
-                .select("id, event, media, date_added")
-                .eq("event", Number(event.id));
+        const { data, error } = await supabase
+            .from("event_media")
+            .select("id, event, media, media_type, date_added, posted_by, profiles:posted_by(userName, avatar)")
+            .eq("event", Number(event.id))
+            .order("date_added", { ascending: false });
 
-            // leaving these logs in for now, useful for debugging media loading
-            console.log("Querying event:", Number(event.id));
-            console.log("Fetched media:", data);
-            console.log("Media error:", error);
+        if (error) {
+            console.error("Error fetching media:", error);
+            setEventMedia([]);
+        } else {
+            setEventMedia(data ?? []);
+        }
 
-            if (error) {
-                console.error("Error fetching media:", error);
-                setEventMedia([]);
-            } else {
-                console.log("Fetched media:", data);
-                setEventMedia(data ?? []);
-            }
+        setIsLoadingMedia(false);
+    };
 
-            setIsLoadingMedia(false);
-        };
-
+    useEffect(() => {
         fetchMedia();
     }, [event?.id]);
 
     // get avatars for everyone invited to this event
-    // (profiles doesn't have an "event" column — that link lives on
-    // "invited", so we query invited and join into profiles for the avatar)
-    useEffect(() => {
+    const fetchAvatar = async () => {
         if (!event?.id) return;
 
-        const fetchAvatar = async () => {
-            setIsLoadingAvatar(true);
+        setIsLoadingAvatar(true);
 
-            const { data, error } = await supabase
-                .from("invited")
-                .select("user, profiles(userName, avatar)")
-                .eq("event", Number(event.id));
+        const { data, error } = await supabase
+            .from("invited")
+            .select("user, profiles(userName, avatar)")
+            .eq("event", Number(event.id));
 
-            if (error) {
-                console.error("Error fetching invited avatars:", error);
-                setAvatar([]);
-            } else {
-                // pull the joined profile out of each invited row
-                const invitedProfiles = (data ?? [])
-                    .map((row) => row.profiles)
-                    .filter(Boolean);
-                setAvatar(invitedProfiles);
-            }
+        if (error) {
+            console.error("Error fetching invited avatars:", error);
+            setAvatar([]);
+        } else {
+            const invitedProfiles = (data ?? [])
+                .map((row) => row.profiles)
+                .filter(Boolean);
+            setAvatar(invitedProfiles);
+        }
 
-            setIsLoadingAvatar(false);
-        };
+        setIsLoadingAvatar(false);
+    };
 
+    useEffect(() => {
         fetchAvatar();
     }, [event?.id]);
 
+    // get this user's existing RSVP for this event, so the segmented
+    // button shows their actual saved choice instead of resetting blank
+    const fetchMyRsvp = async () => {
+        if (!event?.id || !currentUserId) return;
+
+        const { data, error } = await supabase
+            .from("invited")
+            .select("status")
+            .eq("event", Number(event.id))
+            .eq("user", currentUserId)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Error fetching my RSVP:", error);
+            return;
+        }
+
+        setRsvpValue(data?.status ?? "");
+    };
+
+    useEffect(() => {
+        fetchMyRsvp();
+    }, [event?.id, currentUserId]);
+
+    // called when the user taps Yes/Maybe/No — saves immediately
+    const handleRsvpChange = async (newValue) => {
+        setRsvpValue(newValue); // update UI right away
+        if (!event?.id || !currentUserId) return;
+
+        setIsSavingRsvp(true);
+
+        const { error } = await supabase
+            .from("invited")
+            .upsert(
+                { event: Number(event.id), user: currentUserId, status: newValue, role: "guest" },
+                { onConflict: "event,user" }
+            );
+
+        if (error) {
+            console.error("Error saving RSVP:", error);
+        } else {
+            fetchCount(); // attending count may have changed
+        }
+
+        setIsSavingRsvp(false);
+    };
+
+    // re-run all of this event's fetches — used after the edit dialog closes
+    const refreshEvents = async () => {
+        await Promise.all([
+            fetchEventDetails(),
+            fetchHost(),
+            fetchCount(),
+            fetchMedia(),
+            fetchAvatar(),
+        ]);
+    };
+
+    // shared upload flow for story/media
+    const pickAndUpload = async (mediaType, source = "library", assetKind = "image") => {
+        console.log("pickAndUpload called:", { mediaType, source, assetKind });
+        setMenuOpen(false);
+
+        let result;
+
+        if (source === "camera") {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            console.log("Camera permission result:", permission);
+            if (!permission.granted) {
+                console.error("Camera permission not granted:", permission);
+                return;
+            }
+
+            try {
+                result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: assetKind === "video" ? ["videos"] : ["images"],
+                    quality: 0.7,
+                    videoMaxDuration: 15,
+                });
+            } catch (err) {
+                console.error("launchCameraAsync threw:", err);
+                return;
+            }
+        } else {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                console.error("Media library permission not granted");
+                return;
+            }
+
+            result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ["images"],
+                quality: 0.7,
+            });
+        }
+
+        if (result.canceled) return;
+
+        const file = result.assets[0];
+        const fileExt = file.uri.split(".").pop().toLowerCase();
+        const folder = mediaType === "story" ? STORY_FOLDER : MEDIA_FOLDER;
+        const filePath = `${folder}/${event.id}_${Date.now()}.${fileExt}`;
+
+        const extToMimeType = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            heic: "image/heic",
+            mp4: "video/mp4",
+            mov: "video/quicktime",
+        };
+        const contentType = extToMimeType[fileExt] ?? file.mimeType ?? "image/jpeg";
+
+        try {
+            // fetch(uri).blob() is unreliable in RN/Expo — it can silently
+            // produce a corrupted/empty blob, which is why the upload
+            // "succeeds" but the resulting file won't actually load.
+            // Reading as base64 and decoding to an ArrayBuffer is the
+            // reliable pattern for Expo + Supabase Storage uploads.
+            const base64 = await FileSystem.readAsStringAsync(file.uri, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const { error: uploadError } = await supabase.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, decode(base64), {
+                    contentType,
+                });
+
+            if (uploadError) {
+                console.error("Error uploading file:", uploadError);
+                return;
+            }
+
+            const { data: publicUrlData } = supabase.storage
+                .from(STORAGE_BUCKET)
+                .getPublicUrl(filePath);
+
+            const { error: insertError } = await supabase.from("event_media").insert([
+                {
+                    event: Number(event.id),
+                    media: publicUrlData.publicUrl,
+                    media_type: mediaType,
+                    date_added: new Date().toISOString(),
+                    posted_by: currentUserId,
+                },
+            ]);
+
+            if (insertError) {
+                console.error("Error saving media row:", insertError);
+                return;
+            }
+
+            fetchMedia();
+        } catch (err) {
+            console.error("Unexpected upload error:", err);
+        }
+    };
+
+    // most recently uploaded story, for the tap-to-view-story modal and
+    // for the header's circular image
+    const latestStory = eventMedia.find((item) => item.media_type === "story");
+
+    // simple relative-time formatter for the story viewer ("5m ago", etc.)
+    // — no extra date library needed
+    function timeAgo(dateString) {
+        if (!dateString) return "";
+        const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
+        if (seconds < 60) return "Just now";
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    // RSVP button colors by status — used to color the segment when it's
+    // the one currently selected
+    const RSVP_COLORS = {
+        yes: "#2ECC4E",   // green
+        maybe: "#FFC400", // yellow
+        no: "#FD2646",    // red
+    };
 
     // Header element containing top event details
     const renderHeader = () => (
         <View style={styles.headerContainer}>
             {/* Top event photo + title/date/attendee pill */}
             <View style={styles.eventInfoSection}>
-                <Image
-                    source={{
-                        uri:
-                            event.image_url ||
-                            "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
-                    }}
-                    style={styles.image}
-                />
+                <Pressable onPress={() => setStoryViewerVisible(true)}>
+                    <Image
+                        source={{
+                            uri:
+                                latestStory?.media ||
+                                event.image_url ||
+                                "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
+                        }}
+                        style={styles.image}
+                    />
+                </Pressable>
 
                 <View style={styles.eventDetails}>
                     <Text style={styles.title}>{event.title || "Untitled Event"}</Text>
@@ -149,7 +427,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                         </Text>
                     </View>
 
-                    {/* Avatars & extra attendees row - pulled live from invited/profiles now */}
+                    {/* Avatars & extra attendees row */}
                     <View style={styles.avatarRow}>
                         <View style={styles.avatarStack}>
                             {avatar.slice(0, 3).map((profile, index) => (
@@ -160,13 +438,21 @@ export default function PostCardEventScreen({ route, navigation }) {
                                         styles.stackedAvatar,
                                         index > 0 && styles.overlappingAvatar,
                                     ]}
+                                    onError={(error) => {
+                                        console.log(
+                                            "Avatar failed:",
+                                            profile.userName,
+                                            profile.avatar,
+                                            error.nativeEvent.error
+                                        );
+                                    }}
                                 />
                             ))}
                         </View>
 
                         <View style={styles.badgePill}>
                             <Text style={styles.badgeText}>
-                                + {attendingCount} attending
+                                + {attendingCount-3} attending
                             </Text>
                         </View>
                     </View>
@@ -177,28 +463,65 @@ export default function PostCardEventScreen({ route, navigation }) {
             <View style={styles.actionsRow}>
                 <Pressable
                     style={styles.actionPill}
-                    onPress={() => navigation?.navigate?.("Map", { event })}
+                    onPress={() =>
+                        navigation?.navigate?.("EventMap", { event })
+                    }
                 >
                     <Text style={styles.actionText}>View on map</Text>
                 </Pressable>
 
                 <Pressable
                     style={styles.actionPill}
-                    onPress={() => navigation?.navigate?.("Chat", { event })}
+                    onPress={() =>
+                        navigation?.navigate?.("UserTab", {
+                            screen: "Chat",
+                            params: { event },
+                        })
+                    }
                 >
                     <Text style={styles.actionText}>Open chat</Text>
                 </Pressable>
             </View>
 
-            {/* RSVP segmented buttons - yes/maybe/no */}
+            {/* RSVP segmented buttons - yes/maybe/no. value/label split so
+                the DB stores lowercase but the UI still shows Title Case.
+                Each segment gets its own status color (green/yellow/red)
+                applied only while it's the selected one. */}
             <View style={styles.rsvpContainer}>
                 <SegmentedButtons
                     value={rsvpValue}
-                    onValueChange={setRsvpValue}
+                    onValueChange={handleRsvpChange}
                     buttons={[
-                        { value: "Yes", label: "Yes" },
-                        { value: "Maybe", label: "Maybe" },
-                        { value: "No", label: "No" },
+                        {
+                            value: "yes",
+                            label: "Yes",
+                            style:
+                                rsvpValue === "yes"
+                                    ? { backgroundColor: RSVP_COLORS.yes }
+                                    : undefined,
+                            labelStyle:
+                                rsvpValue === "yes" ? { color: "#FFFFFF" } : undefined,
+                        },
+                        {
+                            value: "maybe",
+                            label: "Maybe",
+                            style:
+                                rsvpValue === "maybe"
+                                    ? { backgroundColor: RSVP_COLORS.maybe }
+                                    : undefined,
+                            labelStyle:
+                                rsvpValue === "maybe" ? { color: "#000000" } : undefined,
+                        },
+                        {
+                            value: "no",
+                            label: "No",
+                            style:
+                                rsvpValue === "no"
+                                    ? { backgroundColor: RSVP_COLORS.no }
+                                    : undefined,
+                            labelStyle:
+                                rsvpValue === "no" ? { color: "#FFFFFF" } : undefined,
+                        },
                     ]}
                 />
             </View>
@@ -209,7 +532,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             ) : null}
 
             <Text style={styles.host}>
-                Hosted by: {event.host_profile?.userName || "Unknown host"}
+                Hosted by: @{host}
             </Text>
             <Text style={styles.attending}>
                 {attendingCount} {attendingCount === 1 ? "friend" : "friends"} attending
@@ -254,45 +577,188 @@ export default function PostCardEventScreen({ route, navigation }) {
         </View>
     );
 
-    const visibleData = eventMedia;
+    // make the media grid — filters by active tab now that media_type exists
+    const gridData =
+        activeTab === "Stories"
+            ? eventMedia.filter((item) => item.media_type === "story")
+            : eventMedia;
 
-    // make the media grid
     return (
-        <FlatList
-            style={styles.container}
-            data={eventMedia}
-            numColumns={2}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={renderHeader}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-            renderItem={({ item }) => (
-                <View style={styles.storyCard}>
-                    <Image
-                        source={{ uri: item.media }}
-                        style={styles.storyImage}
-                        resizeMode="cover"
-                        onError={(error) => {
-                            console.log(
-                                "Image failed:",
-                                item.media,
-                                error.nativeEvent.error
-                            );
+        <View style={styles.screenRoot}>
+            <FlatList
+                style={styles.container}
+                data={gridData}
+                numColumns={2}
+                keyExtractor={(item) => item.id.toString()}
+                ListHeaderComponent={renderHeader}
+                columnWrapperStyle={{ justifyContent: "space-between" }}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                renderItem={({ item }) => (
+                    <View style={styles.storyCard}>
+                        <Image
+                            source={{ uri: item.media }}
+                            style={styles.storyImage}
+                            resizeMode="cover"
+                            onError={(error) => {
+                                console.log(
+                                    "Image failed:",
+                                    item.media,
+                                    error.nativeEvent.error
+                                );
+                            }}
+                        />
+                    </View>
+                )}
+                ListEmptyComponent={
+                    <Text style={styles.emptyText}>
+                        {isLoadingMedia ? "Loading media..." : "No media yet."}
+                    </Text>
+                }
+            />
+
+            {/* FAB action menu — Edit / Add to Story / Add to Media.
+                Lives outside the FlatList now so it stays pinned to the
+                bottom-right of the screen instead of scrolling with content. */}
+            {menuOpen && (
+                <View style={styles.fabMenu}>
+                    <Pressable
+                        style={styles.fabMenuItem}
+                        onPress={() => {
+                            setMenuOpen(false);
+                            setVisible(true);
                         }}
-                    />
+                    >
+                        <Text style={styles.fabMenuText}>Edit event</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.fabMenuItem}
+                        onPress={() => pickAndUpload("photo", "library")}
+                    >
+                        <Text style={styles.fabMenuText}>Add to media</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.fabMenuItem}
+                        onPress={() => pickAndUpload("story", "library", "image")}
+                    >
+                        <Text style={styles.fabMenuText}>Story from library</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.fabMenuItem}
+                        onPress={() => pickAndUpload("story", "camera", "image")}
+                    >
+                        <Text style={styles.fabMenuText}>Story: take photo</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.fabMenuItem}
+                        onPress={() => pickAndUpload("story", "camera", "video")}
+                    >
+                        <Text style={styles.fabMenuText}>Story: record video</Text>
+                    </Pressable>
                 </View>
             )}
-            ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                    {isLoadingMedia ? "Loading media..." : "No media yet."}
-                </Text>
-            }
-        />
+
+            <FAB
+                onPress={() => setMenuOpen((prev) => !prev)}
+                style={styles.addButton}
+                visible={true}
+                icon={{ name: "arrow", color: "white" }}
+                color="#0FADFF"
+            />
+
+            {visible && (
+                <UpdateEvent
+                    isVisible={visible}
+                    eventToEdit={currentEvent}
+                    hostId={currentEvent?.host}
+                    onSaved={() => {
+                        refreshEvents();
+                    }}
+                    onClose={() => {
+                        toggleComponent();
+                    }}
+                />
+            )}
+
+            {/* Story viewer — Snap-style: shows who posted it and how long ago */}
+            <Modal
+                visible={storyViewerVisible}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={() => setStoryViewerVisible(false)}
+            >
+                <View style={styles.storyViewerContainer}>
+                    {latestStory ? (
+                        <>
+                            <Image
+                                source={{ uri: latestStory.media }}
+                                style={styles.storyViewerImage}
+                                resizeMode="contain"
+                            />
+
+                            {/* full-area tap-to-close, placed before the header
+                                row below so the close button/username stay on
+                                top and remain tappable in their own right */}
+                            <Pressable
+                                style={styles.storyViewerTapArea}
+                                onPress={() => setStoryViewerVisible(false)}
+                            />
+
+                            {/* progress bar — single segment since we're only
+                                showing the latest story, not a full carousel */}
+                            <View style={styles.storyProgressTrack}>
+                                <View style={styles.storyProgressFill} />
+                            </View>
+
+                            {/* poster info row */}
+                            <View style={styles.storyHeaderRow}>
+                                <Image
+                                    source={{ uri: latestStory.profiles?.avatar }}
+                                    style={styles.storyViewerAvatar}
+                                />
+                                <View style={styles.storyHeaderText}>
+                                    <Text style={styles.storyViewerUsername}>
+                                        {latestStory.profiles?.userName ?? "Someone"}
+                                    </Text>
+                                    <Text style={styles.storyViewerTimeAgo}>
+                                        {timeAgo(latestStory.date_added)}
+                                    </Text>
+                                </View>
+                                <Pressable
+                                    onPress={() => setStoryViewerVisible(false)}
+                                    hitSlop={12}
+                                >
+                                    <Text style={styles.storyViewerClose}>✕</Text>
+                                </Pressable>
+                            </View>
+                        </>
+                    ) : (
+                        <Pressable
+                            style={styles.storyViewerTapArea}
+                            onPress={() => setStoryViewerVisible(false)}
+                        >
+                            <Text style={styles.storyViewerEmptyText}>
+                                No stories posted yet.
+                            </Text>
+                        </Pressable>
+                    )}
+                </View>
+            </Modal>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    screenRoot: {
+        flex: 1,
+        position: "relative",
+    },
+    addButton: {
+        position: "absolute",
+        bottom: 24,
+        right: 24,
+        zIndex: 20,
+    },
     container: {
         flex: 1,
         backgroundColor: "#FFF",
@@ -418,7 +884,7 @@ const styles = StyleSheet.create({
     },
     attending: {
         fontSize: 14,
-        color: "#FF3386",
+        color: "#3399ff",
         marginTop: 5,
         marginBottom: 20,
     },
@@ -498,5 +964,107 @@ const styles = StyleSheet.create({
         textAlign: "center",
         color: "#8E8E93",
         marginTop: 24,
+    },
+    fabMenu: {
+        position: "absolute",
+        bottom: 90,
+        right: 24,
+        backgroundColor: "#FFF",
+        borderRadius: 14,
+        paddingVertical: 6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 6,
+        zIndex: 25,
+    },
+    fabMenuItem: {
+        paddingVertical: 10,
+        paddingHorizontal: 18,
+    },
+    fabMenuText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#1A1A1A",
+    },
+    storyViewerContainer: {
+        flex: 1,
+        backgroundColor: "#000",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+    },
+    storyViewerImage: {
+        width: "100%",
+        height: "100%",
+    },
+    storyViewerTapArea: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    storyProgressTrack: {
+        position: "absolute",
+        top: 54,
+        left: 12,
+        right: 12,
+        height: 3,
+        borderRadius: 2,
+        backgroundColor: "rgba(255,255,255,0.35)",
+    },
+    storyProgressFill: {
+        height: "100%",
+        width: "100%",
+        borderRadius: 2,
+        backgroundColor: "#FFF",
+    },
+    storyHeaderRow: {
+        position: "absolute",
+        top: 66,
+        left: 12,
+        right: 12,
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    storyViewerAvatar: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1.5,
+        borderColor: "#FFF",
+        backgroundColor: "#555",
+        marginRight: 10,
+    },
+    storyHeaderText: {
+        flex: 1,
+    },
+    storyViewerUsername: {
+        color: "#FFF",
+        fontSize: 14,
+        fontWeight: "700",
+        textShadowColor: "rgba(0,0,0,0.6)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    storyViewerTimeAgo: {
+        color: "#EAEAEA",
+        fontSize: 12,
+        marginTop: 2,
+        textShadowColor: "rgba(0,0,0,0.6)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    storyViewerClose: {
+        color: "#FFF",
+        fontSize: 22,
+        fontWeight: "600",
+        paddingHorizontal: 6,
+    },
+    storyViewerEmptyText: {
+        color: "#FFF",
+        fontSize: 16,
     },
 });
