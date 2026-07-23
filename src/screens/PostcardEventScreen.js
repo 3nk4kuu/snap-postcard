@@ -16,6 +16,7 @@ import {
     formatTime,
 } from "../../utils/dateFormatUtil";
 
+// make card grid
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
 
