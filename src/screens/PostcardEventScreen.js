@@ -1,13 +1,26 @@
 import React, { useEffect, useState } from "react";
 import {
-    View,
-    Text,
-    Image,
-    StyleSheet,
-    FlatList,
-    Dimensions,
-    Pressable,
-    Modal,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  Pressable,
+  Modal,
+  TextInput,
+  ScrollView,
+  Switch,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  PanResponder,
+  useWindowDimensions,
 } from "react-native";
 import { SegmentedButtons } from "react-native-paper";
 import { supabase } from "../../utils/hooks/supabase";
@@ -449,6 +462,7 @@ export default function PostCardEventScreen({ route, navigation }) {
         no: "#FD2646",    // red
     };
 
+
     // Header element containing top event details
     const renderHeader = () => (
         <View style={styles.headerContainer}>
@@ -513,7 +527,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                             onPress={() => setAttendeesVisible(true)}
                         >
                             <Text style={styles.badgeText}>
-                                + {attendingCount-3} attending
+                                + {attendingCount - 3} attending
                             </Text>
                         </Pressable>
                     </View>
@@ -595,7 +609,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             <Text style={styles.host}>
                 Hosted by: @{host}
             </Text>
-            
+
             {/* Tab Header bar - Stories vs All Media */}
             <View style={styles.tabContainer}>
                 <Pressable
@@ -642,7 +656,23 @@ export default function PostCardEventScreen({ route, navigation }) {
             : eventMedia;
 
     return (
+
         <View style={styles.screenRoot}>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    style={styles.headerBack}
+                    onPress={() => navigation.goBack()}
+                    hitSlop={8}
+                >
+                    <Ionicons name="chevron-back" size={32} color="#000000" />
+                </TouchableOpacity>
+
+                <Text style={styles.headerTitle}>
+                    {isEditMode ? "Edit Hangout" : "New Hangout"}
+                </Text>
+            </View>
+
+            <View style={styles.headerDivider} />
             <FlatList
                 style={styles.container}
                 data={gridData}
@@ -868,7 +898,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                     onPress={() => setAttendeesVisible(false)}
                 >
                     {/* stop taps inside the sheet itself from closing it */}
-                    <Pressable style={styles.attendeesSheet} onPress={() => {}}>
+                    <Pressable style={styles.attendeesSheet} onPress={() => { }}>
                         <View style={styles.attendeesHandle} />
                         <Text style={styles.attendeesTitle}>
                             {avatar.length} {avatar.length === 1 ? "person" : "people"} attending

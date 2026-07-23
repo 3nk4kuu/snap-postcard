@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
@@ -15,8 +15,14 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
-  
 
+  // NOTE: removed a copy-pasted avatar/attending-count block here that
+  // referenced `event` and `attendingCount` — neither exists in this
+  // component (this screen lists many events, not one), so it was
+  // throwing a ReferenceError on every render. If you want attendee
+  // avatars/counts on these cards, that needs to be fetched per-event
+  // (e.g. joined into the fetchData query below), not as one shared
+  // fetchAvatar() call like the single-event detail screen uses.
 
   const fetchData = async () => {
     try {
@@ -217,6 +223,7 @@ export default function PostCardHubScreen({ title, navigation }) {
             </TouchableOpacity>
           </View>
         )}
+        
 
         {/* Event list, grouped by month */}
         {groupedEvents.map((section) => (
