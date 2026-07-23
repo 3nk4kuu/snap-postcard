@@ -18,8 +18,8 @@ export default function PostCardHubScreen({ title, navigation }) {
   
 
  //need to only show event by if attending or not
-  //need to pull media by story type
-  //need to fix container visual so attending isn't hidden
+//need to pull media by story type
+//need to fix container visual so attending isn't hidden
 
 
   const fetchData = async () => {
@@ -35,7 +35,7 @@ export default function PostCardHubScreen({ title, navigation }) {
       from("events")
       .select(`*, 
         event_media!event_media_event_fkey(media), 
-        invited!attending_event_fkey!inner(id, status)`)
+        invited!invited_event_fkey!inner(id, status)`)
       .eq("invited.user", user.id)
       .in("invited.status", ["yes", "maybe"]);
 
