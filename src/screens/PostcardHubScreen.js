@@ -1,6 +1,6 @@
 import React, {  useMemo, useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
@@ -20,7 +20,7 @@ export default function PostCardHubScreen({ title, navigation }) {
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*");
+      const { data, error } = await supabase.from("events").select("*, event_media!event_media_event_fkey(media)");
 
       //console.log("Fetched data:", data);
       //console.log("Fetch stuff");
@@ -30,7 +30,12 @@ export default function PostCardHubScreen({ title, navigation }) {
       if (error) {
         console.error("Error fetching data:", error);
       } else {
-        setEvents(data);
+        const merged = data.map((event) => ({
+          ...event,
+          media: event.event_media?.[0]?.media ?? null, //if event_media exists, get first item's iamge url
+        }));
+
+        setEvents(merged);
       }
     } catch (error) {
       console.error("Unexpected error:", error);
@@ -243,10 +248,21 @@ const groupedEvents = useMemo(() => {
                       </Text>
                       <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
+                    {/* edit button */}
+                      <TouchableOpacity
+                        style={styles.listMenuButton}
+                        onPress={() => navigation.navigate("EditEventScreen", {event})}>
+                        <Ionicons
+                            name="ellipsis-horizontal"
+                            size={20}
+                            color={styles.listMenuDots.color}
+                          />
+                        </TouchableOpacity>
                   </TouchableOpacity>
                   {index < section.data.length - 1 && (
                     <View style={styles.listRowDivider} />
                   )}
+                
                 </View>
               ))}
             </View>
@@ -341,7 +357,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '600',
     color: '#000000',
   },
@@ -408,15 +424,15 @@ const styles = StyleSheet.create({
   liveCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#6d3bc2', // purple
+    backgroundColor: '#7115CA', // purple
     borderRadius: 16,
     marginHorizontal: 16,
-    padding: 12,
+    padding: 6,
   },
   liveCardImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     marginRight: 12,
   },
   liveCardTextContainer: {
@@ -427,6 +443,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   liveCardTitle: {
+    textAlign: "left",
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -449,6 +466,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#c6c5c5',
   },
   listCard: {
     backgroundColor: '#FFFFFF',
@@ -463,9 +482,9 @@ const styles = StyleSheet.create({
     marginLeft: 72, 
   },
   listImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     marginRight: 12,
     backgroundColor: '#D1D1D6',
   },
@@ -473,6 +492,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listTitle: {
+    textAlign: "left",
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
