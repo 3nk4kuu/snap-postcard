@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -19,6 +19,7 @@ import {
 // same helper the create/edit screen uses, so timestamp columns get local
 // wall-clock time instead of UTC
 import { toLocalTimestamp } from "../../utils/eventDateUtil";
+import StoryViewer from "../components/StoryViewer";
 import { FAB } from "@rn-vui/themed";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -102,9 +103,10 @@ export default function PostCardEventScreen({ route, navigation }) {
 
     // Story viewer modal (opens when tapping the event image)
     const [storyViewerVisible, setStoryViewerVisible] = useState(false);
-    // which story is actually being shown in the viewer — set when tapping
-    // either the header circle image or any story tile in the grid
-    const [selectedStory, setSelectedStory] = useState(null);
+    // which story the viewer opens on — the carousel handles the rest
+    const [storyStartIndex, setStoryStartIndex] = useState(0);
+    // ids of stories this user has already watched, from story_views
+    const [seenStoryIds, setSeenStoryIds] = useState([]);
 
     // media preview/save modal — opens when tapping a photo (non-story) tile
     const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
@@ -463,34 +465,89 @@ export default function PostCardEventScreen({ route, navigation }) {
         }
     };
 
-    // most recently uploaded story, for the tap-to-view-story modal and
-    // for the header's circular image
+    // stories in the order they play — oldest first, Snapchat-style.
+    // (fetchMedia returns newest-first for the grid, so this reverses it.)
+    // memoized so marking a story seen doesn't hand the viewer a brand-new
+    // array on every render
+    const storyItems = useMemo(
+        () =>
+            eventMedia
+                .filter((item) => item.media_type === "story")
+                .slice()
+                .sort((a, b) => new Date(a.date_added) - new Date(b.date_added)),
+        [eventMedia]
+    );
+
+    // most recently uploaded story, for the header's circular image
     const latestStory = eventMedia.find((item) => item.media_type === "story");
 
-    function timeAgo(dateString) {
-        if (!dateString) return "";
+    // which of this event's stories this user has already watched
+    const fetchStoryViews = async () => {
+        if (!currentUserId || storyItems.length === 0) return;
 
-        const uploadedAt = new Date(dateString).getTime();
-        const now = Date.now();
+        const { data, error } = await supabase
+            .from("story_views")
+            .select("media")
+            .eq("viewer", currentUserId)
+            .in(
+                "media",
+                storyItems.map((item) => item.id)
+            );
 
-        if (Number.isNaN(uploadedAt)) {
-            console.log("Invalid date_added:", dateString);
-            return "";
+        if (error) {
+            console.error("Error fetching story views:", error);
+            return;
         }
 
-        const seconds = Math.max(0, Math.floor((now - uploadedAt) / 1000));
+        setSeenStoryIds((data ?? []).map((row) => row.media));
+    };
 
-        if (seconds < 60) return "Just now";
+    useEffect(() => {
+        fetchStoryViews();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUserId, eventMedia.length]);
 
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes}m ago`;
+    // drives the blue ring on the header image
+    const firstUnseenIndex = storyItems.findIndex(
+        (item) => !seenStoryIds.includes(item.id)
+    );
+    const hasUnseenStories = firstUnseenIndex !== -1;
 
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
+    // record a story as watched. the unique (media, viewer) constraint makes
+    // this safe to call again on a re-watch.
+    const markStoryViewed = useCallback(
+        async (mediaId) => {
+            if (!mediaId || !currentUserId) return;
 
-        const days = Math.floor(hours / 24);
-        return `${days}d ago`;
-    }
+            // update locally first so the ring reacts immediately
+            setSeenStoryIds((previous) =>
+                previous.includes(mediaId) ? previous : [...previous, mediaId]
+            );
+
+            const { error } = await supabase
+                .from("story_views")
+                .upsert(
+                    { media: mediaId, viewer: currentUserId },
+                    { onConflict: "media,viewer" }
+                );
+
+            if (error) console.error("Error saving story view:", error);
+        },
+        [currentUserId]
+    );
+
+    // opens on the first unseen story, or the start if they're all watched
+    const openStoryViewer = (startIndex) => {
+        if (storyItems.length === 0) return;
+
+        if (typeof startIndex === "number" && startIndex >= 0) {
+            setStoryStartIndex(startIndex);
+        } else {
+            setStoryStartIndex(hasUnseenStories ? firstUnseenIndex : 0);
+        }
+
+        setStoryViewerVisible(true);
+    };
 
     // downloads a story/media URL and saves it to the device's photo
     // library. MediaLibrary.saveToLibraryAsync needs a local file URI, not
@@ -532,21 +589,26 @@ export default function PostCardEventScreen({ route, navigation }) {
         <View style={styles.headerContainer}>
             {/* Top event photo + title/date/attendee pill */}
             <View style={styles.eventInfoSection}>
-                <Pressable
-                    onPress={() => {
-                        setSelectedStory(latestStory);
-                        setStoryViewerVisible(true);
-                    }}
-                >
-                    <Image
-                        source={{
-                            uri:
-                                latestStory?.media ||
-                                event.image_url ||
-                                "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
-                        }}
-                        style={styles.image}
-                    />
+                <Pressable onPress={() => openStoryViewer()}>
+                    <View
+                        style={[
+                            styles.storyRing,
+                            storyItems.length > 0 &&
+                                (hasUnseenStories
+                                    ? styles.storyRingUnseen
+                                    : styles.storyRingSeen),
+                        ]}
+                    >
+                        <Image
+                            source={{
+                                uri:
+                                    latestStory?.media ||
+                                    event.image_url ||
+                                    "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
+                            }}
+                            style={styles.image}
+                        />
+                    </View>
                 </Pressable>
 
                 <View style={styles.eventDetails}>
@@ -779,8 +841,10 @@ export default function PostCardEventScreen({ route, navigation }) {
                         style={styles.storyCard}
                         onPress={() => {
                             if (item.media_type === "story") {
-                                setSelectedStory(item);
-                                setStoryViewerVisible(true);
+                                // start the carousel on the tile that was tapped
+                                openStoryViewer(
+                                    storyItems.findIndex((s) => s.id === item.id)
+                                );
                             } else {
                                 setSelectedMedia(item);
                                 setMediaViewerVisible(true);
@@ -862,80 +926,17 @@ export default function PostCardEventScreen({ route, navigation }) {
                 color="#0FADFF"
             />
 
-            {/* Story viewer — Snap-style: shows who posted it and how long ago */}
-            <Modal
+            {/* Story viewer — plays every story oldest-first with a 5s
+                timer per photo, videos run their own length */}
+            <StoryViewer
                 visible={storyViewerVisible}
-                transparent={false}
-                animationType="fade"
-                onRequestClose={() => setStoryViewerVisible(false)}
-            >
-                <View style={styles.storyViewerContainer}>
-                    {selectedStory ? (
-                        <>
-                            <Image
-                                source={{ uri: selectedStory.media }}
-                                style={styles.storyViewerImage}
-                                resizeMode="contain"
-                            />
-
-                            {/* full-area tap-to-close, placed before the header
-                                row below so the close button/username stay on
-                                top and remain tappable in their own right */}
-                            <Pressable
-                                style={styles.storyViewerTapArea}
-                                onPress={() => setStoryViewerVisible(false)}
-                            />
-
-                            {/* progress bar — single segment since this only
-                                shows one story at a time, not a full carousel */}
-                            <View style={styles.storyProgressTrack}>
-                                <View style={styles.storyProgressFill} />
-                            </View>
-
-                            {/* poster info row */}
-                            <View style={styles.storyHeaderRow}>
-                                <Image
-                                    source={{ uri: selectedStory.profiles?.avatar }}
-                                    style={styles.storyViewerAvatar}
-                                />
-                                <View style={styles.storyHeaderText}>
-                                    <Text style={styles.storyViewerUsername}>
-                                        {selectedStory.profiles?.userName ?? "Someone"}
-                                    </Text>
-                                    <Text style={styles.storyViewerTimeAgo}>
-                                        {timeAgo(selectedStory.date_added)}
-                                    </Text>
-                                </View>
-                                <Pressable
-                                    onPress={() => saveMediaToDevice(selectedStory.media)}
-                                    hitSlop={12}
-                                    disabled={isSavingMedia}
-                                    style={{ marginRight: 16 }}
-                                >
-                                    <Text style={styles.storyViewerSaveText}>
-                                        {isSavingMedia ? "Saving..." : "Save"}
-                                    </Text>
-                                </Pressable>
-                                <Pressable
-                                    onPress={() => setStoryViewerVisible(false)}
-                                    hitSlop={12}
-                                >
-                                    <Text style={styles.storyViewerClose}>✕</Text>
-                                </Pressable>
-                            </View>
-                        </>
-                    ) : (
-                        <Pressable
-                            style={styles.storyViewerTapArea}
-                            onPress={() => setStoryViewerVisible(false)}
-                        >
-                            <Text style={styles.storyViewerEmptyText}>
-                                No stories posted yet.
-                            </Text>
-                        </Pressable>
-                    )}
-                </View>
-            </Modal>
+                stories={storyItems}
+                initialIndex={storyStartIndex}
+                onClose={() => setStoryViewerVisible(false)}
+                onViewed={markStoryViewed}
+                onSave={saveMediaToDevice}
+                isSaving={isSavingMedia}
+            />
 
             {/* Media preview + save — opens when tapping a non-story photo tile */}
             <Modal
@@ -1123,11 +1124,25 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 16,
     },
+    // wraps the header image — the offset comes from the padding, so the
+    // ring sits away from the photo like Snapchat's
+    storyRing: {
+        padding: 3,
+        borderRadius: 42,
+        borderWidth: 3,
+        borderColor: "transparent",
+        marginRight: 14,
+    },
+    storyRingUnseen: {
+        borderColor: "#0FADFF",
+    },
+    storyRingSeen: {
+        borderColor: "#D1D1D6",
+    },
     image: {
         width: 72,
         height: 72,
         borderRadius: 36,
-        marginRight: 14,
     },
     eventDetails: {
         flex: 1,
