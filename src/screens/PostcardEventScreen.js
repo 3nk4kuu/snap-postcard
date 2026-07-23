@@ -17,27 +17,34 @@ import {
     formatTime,
 } from "../../utils/dateFormatUtil";
 import { Card, FAB } from "@rn-vui/themed";
-import UpdateEvent from "../components/EditEvent";
+// NOTE: requires `expo-image-picker` — if not installed yet:
+//   npx expo install expo-image-picker
 import * as ImagePicker from "expo-image-picker";
+// NOTE: requires `expo-file-system` (usually already in Expo projects) and
+// `base64-arraybuffer` — if not installed: npm install base64-arraybuffer
+// on newer Expo SDKs (52+), the old readAsStringAsync/EncodingType API
 // moved to this legacy subpath
 import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
+// NOTE: requires `expo-media-library` — if not installed yet:
+//   npx expo install expo-media-library
+import * as MediaLibrary from "expo-media-library";
 
 // make card grid
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
 
-// supabase Storage setup
+// Actual Supabase Storage setup (confirmed from dashboard)
 const STORAGE_BUCKET = "event-media";
 const MEDIA_FOLDER = "uploaded-media";
 const STORY_FOLDER = "stories";
 
 
 export default function PostCardEventScreen({ route, navigation }) {
-    // grab event object passed from the hub screen
+    // Grab the event object passed from the hub screen
     const initialEvent = route?.params?.event;
 
-    // live copy of the event we're viewing — starts as whatever got passed
+    // Live copy of the event we're viewing — starts as whatever got passed
     // in via navigation, but gets refreshed from the DB after an edit saves.
     const [currentEvent, setCurrentEvent] = useState(initialEvent);
     const event = currentEvent; // keep the rest of the file's `event.` refs working
@@ -51,18 +58,19 @@ export default function PostCardEventScreen({ route, navigation }) {
     // current logged-in user (needed so RSVP knows *whose* row to upsert)
     const [currentUserId, setCurrentUserId] = useState(null);
 
-    // Edit dialog visibility
-    const [visible, setVisible] = useState(false);
-
     // FAB action menu (Edit / Add to Story / Add to Media)
     const [menuOpen, setMenuOpen] = useState(false);
 
     // Story viewer modal (opens when tapping the event image)
     const [storyViewerVisible, setStoryViewerVisible] = useState(false);
+    // which story is actually being shown in the viewer — set when tapping
+    // either the header circle image or any story tile in the grid
+    const [selectedStory, setSelectedStory] = useState(null);
 
-    function toggleComponent() {
-        setVisible(!visible);
-    }
+    // media preview/save modal — opens when tapping a photo (non-story) tile
+    const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+    const [selectedMedia, setSelectedMedia] = useState(null);
+    const [isSavingMedia, setIsSavingMedia] = useState(false);
 
     // Media grid state
     const [eventMedia, setEventMedia] = useState([]);
@@ -70,6 +78,9 @@ export default function PostCardEventScreen({ route, navigation }) {
 
     // Avatar stack state - avatars of everyone invited to this event
     const [avatar, setAvatar] = useState([]);
+    // bottom sheet listing everyone invited — opens when tapping the
+    // "+ X attending" badge
+    const [attendeesVisible, setAttendeesVisible] = useState(false);
     const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
 
     //Host
@@ -134,14 +145,18 @@ export default function PostCardEventScreen({ route, navigation }) {
         fetchHost();
     }, [event?.host]);
 
-    // get attending count for this event
+    // get attending count for this event — only counts people who actually
+    // said "yes", not everyone who was invited. (Previously this counted
+    // every row in `invited` regardless of status, so switching your RSVP
+    // to "no" never changed the number at all.)
     const fetchCount = async () => {
         if (!event?.id) return;
 
         const { count, error } = await supabase
             .from("invited")
             .select("*", { count: "exact", head: true })
-            .eq("event", Number(event.id));
+            .eq("event", Number(event.id))
+            .eq("status", "yes");
 
         if (error) {
             console.error("Error fetching attending count:", error);
@@ -267,7 +282,10 @@ export default function PostCardEventScreen({ route, navigation }) {
         ]);
     };
 
-    // shared upload flow for story/media
+    // shared upload flow for story/media, from either the library or the
+    // device camera (photo or video). `source` is "library" | "camera",
+    // `assetKind` is "image" | "video" (video only really makes sense with
+    // the camera option, but the param stays generic in case that changes).
     const pickAndUpload = async (mediaType, source = "library", assetKind = "image") => {
         console.log("pickAndUpload called:", { mediaType, source, assetKind });
         setMenuOpen(false);
@@ -312,6 +330,10 @@ export default function PostCardEventScreen({ route, navigation }) {
         const folder = mediaType === "story" ? STORY_FOLDER : MEDIA_FOLDER;
         const filePath = `${folder}/${event.id}_${Date.now()}.${fileExt}`;
 
+        // derive contentType from the actual extension rather than trusting
+        // file.mimeType — that can come back undefined on some platforms,
+        // and a mismatched Content-Type (e.g. saying jpeg for real png
+        // bytes) makes iOS's image decoder fail with a generic download error
         const extToMimeType = {
             jpg: "image/jpeg",
             jpeg: "image/jpeg",
@@ -388,6 +410,37 @@ export default function PostCardEventScreen({ route, navigation }) {
         return `${days}d ago`;
     }
 
+    // downloads a story/media URL and saves it to the device's photo
+    // library. MediaLibrary.saveToLibraryAsync needs a local file URI, not
+    // a remote https URL, so we download it to a temp path first.
+    const saveMediaToDevice = async (remoteUrl) => {
+        if (!remoteUrl || isSavingMedia) return;
+        setIsSavingMedia(true);
+
+        try {
+            const permission = await MediaLibrary.requestPermissionsAsync();
+            if (!permission.granted) {
+                console.error("Media library save permission not granted");
+                return;
+            }
+
+            const fileExt = remoteUrl.split(".").pop().split("?")[0];
+            const localUri = `${FileSystem.cacheDirectory}saved_${Date.now()}.${fileExt}`;
+
+            const { uri: downloadedUri } = await FileSystem.downloadAsync(
+                remoteUrl,
+                localUri
+            );
+
+            await MediaLibrary.saveToLibraryAsync(downloadedUri);
+            console.log("Saved to device photo library:", downloadedUri);
+        } catch (err) {
+            console.error("Error saving media to device:", err);
+        } finally {
+            setIsSavingMedia(false);
+        }
+    };
+
     // RSVP button colors by status — used to color the segment when it's
     // the one currently selected
     const RSVP_COLORS = {
@@ -401,7 +454,12 @@ export default function PostCardEventScreen({ route, navigation }) {
         <View style={styles.headerContainer}>
             {/* Top event photo + title/date/attendee pill */}
             <View style={styles.eventInfoSection}>
-                <Pressable onPress={() => setStoryViewerVisible(true)}>
+                <Pressable
+                    onPress={() => {
+                        setSelectedStory(latestStory);
+                        setStoryViewerVisible(true);
+                    }}
+                >
                     <Image
                         source={{
                             uri:
@@ -450,11 +508,14 @@ export default function PostCardEventScreen({ route, navigation }) {
                             ))}
                         </View>
 
-                        <View style={styles.badgePill}>
+                        <Pressable
+                            style={styles.badgePill}
+                            onPress={() => setAttendeesVisible(true)}
+                        >
                             <Text style={styles.badgeText}>
                                 + {attendingCount-3} attending
                             </Text>
-                        </View>
+                        </Pressable>
                     </View>
                 </View>
             </View>
@@ -534,10 +595,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             <Text style={styles.host}>
                 Hosted by: @{host}
             </Text>
-            <Text style={styles.attending}>
-                {attendingCount} {attendingCount === 1 ? "friend" : "friends"} attending
-            </Text>
-
+            
             {/* Tab Header bar - Stories vs All Media */}
             <View style={styles.tabContainer}>
                 <Pressable
@@ -595,7 +653,18 @@ export default function PostCardEventScreen({ route, navigation }) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
                 renderItem={({ item }) => (
-                    <View style={styles.storyCard}>
+                    <Pressable
+                        style={styles.storyCard}
+                        onPress={() => {
+                            if (item.media_type === "story") {
+                                setSelectedStory(item);
+                                setStoryViewerVisible(true);
+                            } else {
+                                setSelectedMedia(item);
+                                setMediaViewerVisible(true);
+                            }
+                        }}
+                    >
                         <Image
                             source={{ uri: item.media }}
                             style={styles.storyImage}
@@ -608,7 +677,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                                 );
                             }}
                         />
-                    </View>
+                    </Pressable>
                 )}
                 ListEmptyComponent={
                     <Text style={styles.emptyText}>
@@ -626,7 +695,10 @@ export default function PostCardEventScreen({ route, navigation }) {
                         style={styles.fabMenuItem}
                         onPress={() => {
                             setMenuOpen(false);
-                            setVisible(true);
+                            navigation.navigate("PostcardCreateEventScreen", {
+                                eventToEdit: currentEvent,
+                                onSaved: refreshEvents,
+                            });
                         }}
                     >
                         <Text style={styles.fabMenuText}>Edit event</Text>
@@ -666,20 +738,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                 color="#0FADFF"
             />
 
-            {visible && (
-                <UpdateEvent
-                    isVisible={visible}
-                    eventToEdit={currentEvent}
-                    hostId={currentEvent?.host}
-                    onSaved={() => {
-                        refreshEvents();
-                    }}
-                    onClose={() => {
-                        toggleComponent();
-                    }}
-                />
-            )}
-
             {/* Story viewer — Snap-style: shows who posted it and how long ago */}
             <Modal
                 visible={storyViewerVisible}
@@ -688,10 +746,10 @@ export default function PostCardEventScreen({ route, navigation }) {
                 onRequestClose={() => setStoryViewerVisible(false)}
             >
                 <View style={styles.storyViewerContainer}>
-                    {latestStory ? (
+                    {selectedStory ? (
                         <>
                             <Image
-                                source={{ uri: latestStory.media }}
+                                source={{ uri: selectedStory.media }}
                                 style={styles.storyViewerImage}
                                 resizeMode="contain"
                             />
@@ -704,8 +762,8 @@ export default function PostCardEventScreen({ route, navigation }) {
                                 onPress={() => setStoryViewerVisible(false)}
                             />
 
-                            {/* progress bar — single segment since we're only
-                                showing the latest story, not a full carousel */}
+                            {/* progress bar — single segment since this only
+                                shows one story at a time, not a full carousel */}
                             <View style={styles.storyProgressTrack}>
                                 <View style={styles.storyProgressFill} />
                             </View>
@@ -713,17 +771,27 @@ export default function PostCardEventScreen({ route, navigation }) {
                             {/* poster info row */}
                             <View style={styles.storyHeaderRow}>
                                 <Image
-                                    source={{ uri: latestStory.profiles?.avatar }}
+                                    source={{ uri: selectedStory.profiles?.avatar }}
                                     style={styles.storyViewerAvatar}
                                 />
                                 <View style={styles.storyHeaderText}>
                                     <Text style={styles.storyViewerUsername}>
-                                        {latestStory.profiles?.userName ?? "Someone"}
+                                        {selectedStory.profiles?.userName ?? "Someone"}
                                     </Text>
                                     <Text style={styles.storyViewerTimeAgo}>
-                                        {timeAgo(latestStory.date_added)}
+                                        {timeAgo(selectedStory.date_added)}
                                     </Text>
                                 </View>
+                                <Pressable
+                                    onPress={() => saveMediaToDevice(selectedStory.media)}
+                                    hitSlop={12}
+                                    disabled={isSavingMedia}
+                                    style={{ marginRight: 16 }}
+                                >
+                                    <Text style={styles.storyViewerSaveText}>
+                                        {isSavingMedia ? "Saving..." : "Save"}
+                                    </Text>
+                                </Pressable>
                                 <Pressable
                                     onPress={() => setStoryViewerVisible(false)}
                                     hitSlop={12}
@@ -743,6 +811,90 @@ export default function PostCardEventScreen({ route, navigation }) {
                         </Pressable>
                     )}
                 </View>
+            </Modal>
+
+            {/* Media preview + save — opens when tapping a non-story photo tile */}
+            <Modal
+                visible={mediaViewerVisible}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={() => setMediaViewerVisible(false)}
+            >
+                <View style={styles.storyViewerContainer}>
+                    {selectedMedia && (
+                        <>
+                            <Image
+                                source={{ uri: selectedMedia.media }}
+                                style={styles.storyViewerImage}
+                                resizeMode="contain"
+                            />
+                            <Pressable
+                                style={styles.storyViewerTapArea}
+                                onPress={() => setMediaViewerVisible(false)}
+                            />
+                            <View style={styles.mediaViewerTopRow}>
+                                <Pressable
+                                    onPress={() => saveMediaToDevice(selectedMedia.media)}
+                                    hitSlop={12}
+                                    disabled={isSavingMedia}
+                                    style={styles.mediaViewerSaveButton}
+                                >
+                                    <Text style={styles.storyViewerSaveText}>
+                                        {isSavingMedia ? "Saving..." : "Save to Photos"}
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={() => setMediaViewerVisible(false)}
+                                    hitSlop={12}
+                                >
+                                    <Text style={styles.storyViewerClose}>✕</Text>
+                                </Pressable>
+                            </View>
+                        </>
+                    )}
+                </View>
+            </Modal>
+
+            {/* Attendees bottom sheet — opens from the "+ X attending" badge */}
+            <Modal
+                visible={attendeesVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setAttendeesVisible(false)}
+            >
+                {/* tap the dark overlay outside the sheet to dismiss */}
+                <Pressable
+                    style={styles.attendeesOverlay}
+                    onPress={() => setAttendeesVisible(false)}
+                >
+                    {/* stop taps inside the sheet itself from closing it */}
+                    <Pressable style={styles.attendeesSheet} onPress={() => {}}>
+                        <View style={styles.attendeesHandle} />
+                        <Text style={styles.attendeesTitle}>
+                            {avatar.length} {avatar.length === 1 ? "person" : "people"} attending
+                        </Text>
+                        <FlatList
+                            data={avatar}
+                            keyExtractor={(item, index) => item.userName ?? String(index)}
+                            renderItem={({ item }) => (
+                                <View style={styles.attendeeRow}>
+                                    <Image
+                                        source={{ uri: item.avatar }}
+                                        style={styles.attendeeAvatar}
+                                    />
+                                    <Text style={styles.attendeeName}>
+                                        {item.userName ?? "Unknown"}
+                                    </Text>
+                                </View>
+                            )}
+                            ListEmptyComponent={
+                                <Text style={styles.attendeesEmptyText}>
+                                    No one invited yet.
+                                </Text>
+                            }
+                        />
+                    </Pressable>
+                </Pressable>
             </Modal>
         </View>
     );
@@ -1063,8 +1215,80 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         paddingHorizontal: 6,
     },
+    storyViewerSaveText: {
+        color: "#FFFC00",
+        fontSize: 14,
+        fontWeight: "700",
+    },
     storyViewerEmptyText: {
         color: "#FFF",
         fontSize: 16,
+    },
+    mediaViewerTopRow: {
+        position: "absolute",
+        top: 54,
+        left: 16,
+        right: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    mediaViewerSaveButton: {
+        backgroundColor: "rgba(0,0,0,0.5)",
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    attendeesOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "flex-end",
+    },
+    attendeesSheet: {
+        backgroundColor: "#FBFBF5",
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingTop: 10,
+        paddingHorizontal: 20,
+        paddingBottom: 30,
+        maxHeight: "70%",
+    },
+    attendeesHandle: {
+        alignSelf: "center",
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: "#D6D6D6",
+        marginBottom: 14,
+    },
+    attendeesTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#000000",
+        marginBottom: 12,
+    },
+    attendeeRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: "#FFFFE1",
+    },
+    attendeeAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "#FFFFE1",
+        marginRight: 12,
+    },
+    attendeeName: {
+        fontSize: 15,
+        fontWeight: "600",
+        color: "#000000",
+    },
+    attendeesEmptyText: {
+        textAlign: "center",
+        color: "#8E8E93",
+        marginTop: 20,
     },
 });
