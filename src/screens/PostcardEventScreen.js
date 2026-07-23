@@ -452,13 +452,24 @@ export default function PostCardEventScreen({ route, navigation }) {
 
                         <View style={styles.badgePill}>
                             <Text style={styles.badgeText}>
-                                + {attendingCount-3} attending
+                                + {attendingCount - 3} attending
                             </Text>
                         </View>
                     </View>
                 </View>
             </View>
+            {/* Event Description */}
+            {event.description ? (
+                <Text style={styles.descriptionText}>{event.description}</Text>
+            ) : null}
 
+            <Text style={styles.host}>
+                Hosted by: @{host}
+            </Text>
+            <Text style={styles.attending}>
+                {attendingCount} {attendingCount === 1 ? "friend" : "friends"} attending
+            </Text>
+            
             {/* Action Buttons Row - map + chat */}
             <View style={styles.actionsRow}>
                 <Pressable
@@ -526,17 +537,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                 />
             </View>
 
-            {/* Event Description */}
-            {event.description ? (
-                <Text style={styles.descriptionText}>{event.description}</Text>
-            ) : null}
-
-            <Text style={styles.host}>
-                Hosted by: @{host}
-            </Text>
-            <Text style={styles.attending}>
-                {attendingCount} {attendingCount === 1 ? "friend" : "friends"} attending
-            </Text>
 
             {/* Tab Header bar - Stories vs All Media */}
             <View style={styles.tabContainer}>
