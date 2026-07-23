@@ -1,4 +1,6 @@
 import React, { useMemo, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 import { Card, FAB } from "@rn-vui/themed";
 import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
 } from "react-native";
@@ -13,6 +15,7 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
+  
 
 
   const fetchData = async () => {
@@ -43,9 +46,12 @@ export default function PostCardHubScreen({ title, navigation }) {
     await fetchData();
   };
 
-  useEffect(() => {
+  //to re-render while creating events 
+  useFocusEffect(
+  useCallback(() => {
     fetchData();
-  }, []);
+  }, [])
+);
 
   // Search events by title or date
   const filteredEvents = useMemo(() => {
@@ -86,6 +92,9 @@ export default function PostCardHubScreen({ title, navigation }) {
       return start > now && event.id !== liveEvent?.id;
     });
   }, [filteredEvents, liveEvent]);
+
+  //filter events shown by if attending or not
+
 
   // Group upcoming events by month
   const groupedEvents = useMemo(() => {
