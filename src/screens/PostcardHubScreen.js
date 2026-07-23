@@ -36,7 +36,7 @@ export default function PostCardHubScreen({ title, navigation }) {
         event_media!event_media_event_fkey(media, date_added), 
         invited!invited_event_fkey!inner(id, status)`)
       .eq("invited.user", user.id)
-      .in("invited.status", ["yes", "maybe"]);
+      .in("invited.status", ["yes", "maybe", "no", "null"]);
 
        //Based on "profiles" "id", check if attending status in "invited" to "event" is "yes" or "maybe"
        
@@ -103,7 +103,18 @@ const AllEvents = useMemo(() => {
   return filteredEvents.filter((event) => event.id !== liveEvent?.id);
 }, [filteredEvents, liveEvent]);
 
+//all upcoming events from allEvents
+const upcomingEvents = useMemo(() => {
+  const now = new Date();
 
+  return filteredEvents.filter((event) => {
+    const start = new Date(event.start_datetime);
+
+    return start > now && event.id !== liveEvent?.id;
+  });
+}, [filteredEvents, liveEvent]);
+
+//all past events from allEvents
 
 
   // Group all events by month
