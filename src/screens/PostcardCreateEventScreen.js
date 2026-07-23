@@ -915,10 +915,17 @@ function DateTimeSheet({
 }
 
 /* ------------------------------------------------------------------
- * Create event screen
+ * Create / Edit event screen
+ * Pass `route.params.eventToEdit` (a full event row) to open this in
+ * edit mode — the form pre-fills and the save button updates that row
+ * instead of inserting a new one. Leave it out to create a new event
+ * like before.
  * ---------------------------------------------------------------- */
 
 export default function PostcardCreateEventScreen({ navigation, route }) {
+  const eventToEdit = route?.params?.eventToEdit;
+  const isEditMode = Boolean(eventToEdit?.id);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -932,9 +939,43 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
 
   const [hostProfile, setHostProfile] = useState(null);
 
+  // pre-fill the form when opened in edit mode
+  useEffect(() => {
+    if (!eventToEdit) return;
+
+    setTitle(eventToEdit.title ?? "");
+    setDescription(eventToEdit.description ?? "");
+    setLocation(eventToEdit.location ?? "");
+    setStartDatetime(
+      eventToEdit.start_datetime ? new Date(eventToEdit.start_datetime) : null
+    );
+    setEndDatetime(
+      eventToEdit.end_datetime ? new Date(eventToEdit.end_datetime) : null
+    );
+    setIsAllDay(Boolean(eventToEdit.is_all_day));
+  }, [eventToEdit]);
+
   useEffect(() => {
     const fetchHostProfile = async () => {
       try {
+        // in edit mode show the event's actual host, not necessarily
+        // whoever is currently logged in and tapping "edit"
+        if (isEditMode && eventToEdit?.host) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, userName, avatar")
+            .eq("id", eventToEdit.host)
+            .single();
+
+          if (error) {
+            console.error("Error fetching host profile:", error);
+            return;
+          }
+
+          setHostProfile(data);
+          return;
+        }
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -959,7 +1000,7 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
     };
 
     fetchHostProfile();
-  }, []);
+  }, [isEditMode, eventToEdit?.host]);
 
   function applyPreset(preset) {
     const now = new Date();
@@ -1042,6 +1083,36 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
         return;
       }
 
+      // EDIT MODE — update the existing row instead of inserting a new one.
+      if (isEditMode) {
+        const { error: updateError } = await supabase
+          .from("events")
+          .update({
+            title: title.trim(),
+            description: description.trim() || null,
+            start_datetime: toLocalTimestamp(startDatetime),
+            end_datetime: endDatetime ? toLocalTimestamp(endDatetime) : null,
+            is_all_day: isAllDay,
+            location: location.trim(),
+          })
+          .eq("id", eventToEdit.id);
+
+        if (updateError) {
+          console.error("Error updating event:", updateError);
+          Alert.alert("Event not updated", "Something went wrong. Try again.");
+          setIsSaving(false);
+          return;
+        }
+
+        if (typeof route?.params?.onSaved === "function") {
+          route.params.onSaved();
+        }
+
+        navigation.goBack();
+        return;
+      }
+
+      // CREATE MODE
       const { data: createdEvent, error: eventError } = await supabase
         .from("events")
         .insert({
@@ -1072,7 +1143,10 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
       navigation.goBack();
     } catch (error) {
       console.error("Unexpected error creating event:", error);
-      Alert.alert("Event not created", "Something went wrong. Try again.");
+      Alert.alert(
+        isEditMode ? "Event not updated" : "Event not created",
+        "Something went wrong. Try again."
+      );
       setIsSaving(false);
     }
   }
@@ -1091,7 +1165,9 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
           <Ionicons name="chevron-back" size={32} color="#000000" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>New Hangout</Text>
+        <Text style={styles.headerTitle}>
+          {isEditMode ? "Edit Hangout" : "New Hangout"}
+        </Text>
       </View>
 
       <View style={styles.headerDivider} />
@@ -1210,10 +1286,16 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
                 : "Hosting this hangout"}
             </Text>
 
-            <TouchableOpacity style={styles.inviteButton} onPress={() => {}}>
-              <Text style={styles.inviteButtonText}>Invite More People</Text>
-              <Ionicons name="paper-plane-outline" size={18} color="#2F87F5" />
-            </TouchableOpacity>
+            {/* Inviting more people from the edit flow would need its own
+                UI (a picker over existing "invited" rows) — skipping that
+                button in edit mode for now rather than showing something
+                that doesn't do anything yet. */}
+            {!isEditMode && (
+              <TouchableOpacity style={styles.inviteButton} onPress={() => {}}>
+                <Text style={styles.inviteButtonText}>Invite More People</Text>
+                <Ionicons name="paper-plane-outline" size={18} color="#2F87F5" />
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
 
@@ -1232,7 +1314,7 @@ export default function PostcardCreateEventScreen({ navigation, route }) {
                   !canCreate && styles.createButtonTextDisabled,
                 ]}
               >
-                Create event
+                {isEditMode ? "Save changes" : "Create event"}
               </Text>
             )}
           </TouchableOpacity>
