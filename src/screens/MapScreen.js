@@ -16,6 +16,8 @@ import * as Location from "expo-location";
 
 import Ionicons from "react-native-vector-icons/Ionicons";
 
+import PostCardEventScreen from "./PostcardEventScreen";
+
 export default function MapScreen({ navigation, route }) {
   // useBottomTabBarHeight() throws when not inside a Bottom Tab Navigator.
   // MapScreen is now mounted two ways: as the "Map" tab (inside UserTab,
