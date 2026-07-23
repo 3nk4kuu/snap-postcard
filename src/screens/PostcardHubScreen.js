@@ -137,6 +137,10 @@ const groupedEvents = useMemo(() => {
         >
           <Ionicons name="chevron-back" size={24} color="#000000" />
         </TouchableOpacity>
+        <Image
+          source={require("../../assets/event-badge.png")}
+          style={{ width: 40, height: 40, marginRight: 20}}
+        />
          <Text style={styles.headerTitle}>Postcards</Text>
       </View>
 
@@ -191,7 +195,7 @@ const groupedEvents = useMemo(() => {
             <TouchableOpacity
               style={styles.liveCard}
               onPress={() => 
-                navigation.navigate("PostcardEventScreen", {
+                navigation.navigate("PostCardEventScreen", {
                   event: liveEvent,
                 })
               }
@@ -348,7 +352,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 12,
+    paddingBottom: 20,
+    paddingTop: 20,
     backgroundColor: '#FFFFFF',
   },
   headerBackButton: {

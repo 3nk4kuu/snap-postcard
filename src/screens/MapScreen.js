@@ -147,13 +147,8 @@ export default function MapScreen({ navigation, route }) {
                 navigation.navigate("Event");
               }}
             >
-              <View style={styles.myBitmoji}>
-                <Ionicons name="calendar-outline" size={50} color="gray" />
-                <View style={styles.bitmojiTextContainer}>
-                  <Text style={styles.bitmojiText}>Events</Text>
-                </View>
-              </View>
             </Pressable>
+            
             {/*Navigation to postcard hub screen */}
             <Pressable
               onPress={() => {
@@ -161,7 +156,10 @@ export default function MapScreen({ navigation, route }) {
               }}
             >
               <View style={styles.myBitmoji}>
-                <Ionicons name="calendar-outline" size={50} color="gray" />
+                <Image
+                  source={require("../../assets/event-badge.png")}
+                  style={{ width: 50, height: 50 }}
+                />
                 <View style={styles.bitmojiTextContainer}>
                   <Text style={styles.bitmojiText}>Postcard</Text>
                 </View>

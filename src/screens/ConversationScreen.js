@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
+  Image,
   FlatList,
   TextInput,
   TouchableOpacity,
@@ -83,7 +83,7 @@ export default function ConversationScreen({ navigation, route }) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* HEADER */}
 
       <View style={styles.header}>
@@ -102,13 +102,16 @@ export default function ConversationScreen({ navigation, route }) {
               })
             }
           >
-          <Ionicons name="calendar" size={25}  />
+          <Image
+              source={require("../../assets/event-badge.png")}
+              style={{ width: 30, height: 30 , paddingBottom: 5}}
+            />
           </TouchableOpacity>
           <TouchableOpacity>
-          <Ionicons name="videocam" size={25} />
+          <Ionicons name="videocam-outline" size={25} />
           </TouchableOpacity>
           <TouchableOpacity>
-          <Ionicons name="call" size={23} />
+          <Ionicons name="call-outline" size={23} />
           </TouchableOpacity>
         </View>
       </View> 
@@ -157,7 +160,7 @@ export default function ConversationScreen({ navigation, route }) {
 
           {/* Emoji */}
           <TouchableOpacity>
-            <Text style={styles.emoji}>🙂</Text>
+            <Ionicons name="happy-outline" size={24} />
           </TouchableOpacity>
 
           {/* Plus */}
@@ -166,7 +169,7 @@ export default function ConversationScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 const styles = StyleSheet.create({
