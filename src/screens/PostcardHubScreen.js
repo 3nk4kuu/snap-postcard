@@ -1,13 +1,6 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Image,
-  Button,
-  TouchableOpacity,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
@@ -19,28 +12,27 @@ import { formatMonthDay, formatTime } from "../../utils/dateFormatUtil";
 export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
-  const [search, setSearch] = useState(""); //for setting search
-  //const [filteredData, setFilteredData] = useState(data); //for search results
+  const [search, setSearch] = useState(""); //for setting search 
 
-  //not needed?
-  // function toggleComponent() {
-  //   setVisible(!visible);
-  // }
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*");
+      const { data, error } = await supabase.from("events").select("*, event_media!event_media_event_fkey(media)");
 
       //console.log("Fetched data:", data);
       //console.log("Fetch stuff");
       //console.log("Fetch error:", error);
 
-      //state variable updates for events right now, today, tomorrow, next week, this month
-
+  
       if (error) {
         console.error("Error fetching data:", error);
       } else {
-        setEvents(data);
+        const merged = data.map((event) => ({
+          ...event,
+          media: event.event_media?.[0]?.media ?? null, //if event_media exists, get first item's iamge url
+        }));
+
+        setEvents(merged);
       }
     } catch (error) {
       console.error("Unexpected error:", error);
@@ -178,10 +170,10 @@ export default function PostCardHubScreen({ title, navigation }) {
       <ScrollView>
         {/* Live card */}
         {/*Live Card - current time is between start and end time */}
+        <Text style={styles.sectionHeader}>Happening Now</Text>
         {liveEvent && (
           <View style={styles.liveCard}>
             {/* Divider */}
-            <Text style={styles.sectionHeader}>Happening Now</Text>
             <TouchableOpacity
               style={styles.liveCard}
               onPress={() =>
@@ -198,6 +190,9 @@ export default function PostCardHubScreen({ title, navigation }) {
                 <Card.Title style={styles.liveCardTitle}>
                   {liveEvent.title}
                 </Card.Title>
+                <Text style={styles.liveCardDate}>
+                  {formatMonthDay(liveEvent.start_datetime)} {" "}
+                </Text>
                 <Text style={styles.liveCardDate}>
                   {formatTime(liveEvent.start_datetime)} –{" "}
                   {formatTime(liveEvent.end_datetime)}
@@ -236,14 +231,26 @@ export default function PostCardHubScreen({ title, navigation }) {
                         {formatTime(event.start_datetime)} –{" "}
                         {formatTime(event.end_datetime)}
                       </Text>
-                      <Text style={styles.listDescription}>
+                      <Text>
                         {event.attending}
                       </Text>
+                      <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
+                    {/* edit button */}
+                      <TouchableOpacity
+                        style={styles.listMenuButton}
+                        onPress={() => navigation.navigate("EditEventScreen", {event})}>
+                        <Ionicons
+                            name="ellipsis-horizontal"
+                            size={20}
+                            color={styles.listMenuDots.color}
+                          />
+                        </TouchableOpacity>
                   </TouchableOpacity>
                   {index < section.data.length - 1 && (
                     <View style={styles.listRowDivider} />
                   )}
+                
                 </View>
               ))}
             </View>
@@ -262,16 +269,7 @@ export default function PostCardHubScreen({ title, navigation }) {
         icon={<Ionicons name="add" size={28} color="white" />}
         color="#335fff"
       />
-
-      {/* not needed? Maybe needed inside event creation? */}
-      {/* <AddEvent
-        isVisible={visible}
-        onClose={() => {
-          toggleComponent();
-          refreshEvents();
-        }}
-      /> */}
-    </View>
+  </View>
   );
 }
 
@@ -333,11 +331,11 @@ const styles = StyleSheet.create({
     marginTop: 60,
     height: "100%",
   },
-  //---------------------
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  //----------------------------
+    header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingBottom: 12,
     backgroundColor: "#FFFFFF",
   },
@@ -347,15 +345,15 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000000',
   },
   headerDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#D1D1D6",
   },
-
+//----------------------------
   // Search bar
   searchContainer: {
     flexDirection: "row",
@@ -381,8 +379,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: "#8E8E93",
   },
-
-  // Icon row (people / contact / location / add)
+ //----------------------------
+//Icon row (people / contact / location / add)
   iconRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -397,32 +395,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-
+ //----------------------------
   // Section headers ("Happening Now", "July 2026", etc.)
   sectionHeader: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#000000",
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
     marginHorizontal: 16,
     marginTop: 18,
     marginBottom: 10,
   },
-  //----------------------
 
-  //------------------------
+ 
+//----------------------------
   // "Happening Now" highlighted card
   liveCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#7C3AED", // purple
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7115CA', // purple
     borderRadius: 16,
     marginHorizontal: 16,
-    padding: 12,
+    padding: 6,
   },
   liveCardImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     marginRight: 12,
   },
   liveCardTextContainer: {
@@ -433,6 +431,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   liveCardTitle: {
+    textAlign: "left",
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
@@ -447,15 +446,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#E9D5FF",
   },
-
+//----------------------------
   //lists
-  //------------------------
-  listRow: {
+    listRow: {
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#c6c5c5',
   },
   listCard: {
     backgroundColor: "#FFFFFF",
@@ -470,9 +470,9 @@ const styles = StyleSheet.create({
     marginLeft: 72,
   },
   listImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     marginRight: 12,
     backgroundColor: "#D1D1D6",
   },
@@ -480,6 +480,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listTitle: {
+    textAlign: "left",
     fontSize: 16,
     fontWeight: "600",
     color: "#000000",
@@ -495,9 +496,15 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 2,
   },
-  fab: {
-    //floating action button
-    position: "absolute",
+  listMenuButton: {
+    padding: 8,
+  },
+  listMenuDots: {
+    color: "#3C3C43",
+  },
+  //----------------------------
+  fab: { //floating action button
+    position: 'absolute',
     right: 20,
     bottom: 28,
     width: 56,
