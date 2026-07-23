@@ -1,5 +1,4 @@
-import { supabase } from '../supabaseClient';
-
+import { supabase } from "./hooks/supabase";
 // GET MEDIA
 // pulls url from supabase
 
@@ -8,17 +7,19 @@ import { supabase } from '../supabaseClient';
 // should return [{ id: 1, media: "https://..." }]
 export async function getEventMedia(eventId) {
   if (!eventId) return [];
+
   try {
     const { data, error } = await supabase
-      .from('event_media')
-      .select('id, media')
-      .eq('event_id', eventId);
+      .from("event_media")
+      .select("id, media")
+      .eq("event", Number(eventId));
 
     if (error) throw error;
-    return data;
+
+    return data ?? [];
   } catch (error) {
-    console.error('Error fetching event media:', error.message);
-    return []; 
+    console.error("Error fetching event media:", error);
+    return [];
   }
 }
 
@@ -37,9 +38,12 @@ export async function uploadImageToSupabase(fileUri, folderName = 'uploaded-medi
     const response = await fetch(fileUri);
     const blob = await response.blob();
 
-    const { error: uploadError } = await supabase.storage
-      .from('event-media')
-      .upload(filePath, blob, { contentType: `image/${fileExt}` });
+    const { error: databaseError } = await supabase
+      .from("event_media")
+      .insert({
+        event: Number(eventId),
+        media: publicUrl,
+      });
 
     if (uploadError) throw uploadError;
 
