@@ -125,7 +125,11 @@ export default function PostCardHubScreen({ title, navigation }) {
         >
           <Ionicons name="chevron-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Postcards</Text>
+        <Image
+          source={require("../../assets/event-badge.png")}
+          style={{ width: 40, height: 40, marginRight: 20}}
+        />
+         <Text style={styles.headerTitle}>Postcards</Text>
       </View>
 
       {/* Search bar area */}
@@ -176,8 +180,8 @@ export default function PostCardHubScreen({ title, navigation }) {
             {/* Divider */}
             <TouchableOpacity
               style={styles.liveCard}
-              onPress={() =>
-                navigation.navigate("PostcardEventScreen", {
+              onPress={() => 
+                navigation.navigate("PostCardEventScreen", {
                   event: liveEvent,
                 })
               }
@@ -237,15 +241,15 @@ export default function PostCardHubScreen({ title, navigation }) {
                       <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
                     {/* edit button */}
-                      <TouchableOpacity
+                      {/* <TouchableOpacity
                         style={styles.listMenuButton}
-                        onPress={() => navigation.navigate("EditEventScreen", {event})}>
+                        onPress={() => navigation.navigate("PostcardEventScreen", {event})}>
                         <Ionicons
                             name="ellipsis-horizontal"
                             size={20}
                             color={styles.listMenuDots.color}
                           />
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                   </TouchableOpacity>
                   {index < section.data.length - 1 && (
                     <View style={styles.listRowDivider} />
@@ -336,8 +340,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 12,
-    backgroundColor: "#FFFFFF",
+    paddingBottom: 20,
+    paddingTop: 20,
+    backgroundColor: '#FFFFFF',
   },
   headerBackButton: {
     position: "absolute",

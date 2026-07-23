@@ -110,6 +110,11 @@ export default function App() {
           component={PostcardHubScreen}
           options={{ headerShown: false }}
         />
+         <Stack.Screen
+          name="PostcardCreateEvent"
+          component={PostcardCreateEventScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

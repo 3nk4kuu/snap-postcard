@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,30 +17,48 @@ import DiscoverFeed from "../components/DiscoverFeed";
 import { useNavigation } from "@react-navigation/native";
 
 import Header from "../components/Header";
+import { supabase } from "../../utils/hooks/supabase";
 
 /* Discover FlatList will render a component in the list
  * for each object in the array DATA. This is just an example I took
  * from the FlatList documentation, so feel free to change the contents.
  */
 
-const DATA = [
-  {
-    id: "bd7acbea-c1b1-46c2-aed5-3ad53abb28ba",
-    title: "First Item",
-  },
-  {
-    id: "3ac68afc-c605-48d3-a4f8-fbd91aa97f63",
-    title: "Second Item",
-  },
-  {
-    id: "58694a0f-3da1-471f-bd96-145571e29d72",
-    title: "Third Item",
-  },
-];
+
 
 export default function StoriesScreen({ route, navigation }) {
+  
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+
+  const [profile, setProfile] = useState([]);
+
+    const fetchData = async () => {
+      try {
+        const { data, error } = await supabase.from("profiles").select("*");
+  
+  
+    
+        if (error) {
+          console.error("Error fetching data:", error);
+        } else {
+  
+          setProfile(data);
+        }
+      } catch (error) {
+        console.error("Unexpected error:", error);
+      }
+    };
+  
+    const refreshEvents = async () => {
+      await fetchData();
+    };
+  
+    useEffect(() => {
+      fetchData();
+    }, []);
+  
+    //console.log("profile:", profile);
 
   return (
     <View
@@ -66,23 +84,20 @@ export default function StoriesScreen({ route, navigation }) {
 
             //contentContainerStyle={styles.stories} commented this out because it prevented story scrolling felt unintuitive
           >
-            <StoriesBitmoji onPress={console.log("bit moooooo")} />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
-            <StoriesBitmoji />
+           {profile.map((friend) => (
+            <StoriesBitmoji
+              key={friend.id}
+              avatarUrl={friend.avatar}
+              username={friend.userName}
+              onPress={() => console.log(friend.userName)}
+            />
+          ))}
           </ScrollView>
         </View>
         <Text style={styles.sectionHeader}>Discover</Text>
         <FlatList
           contentContainerStyle={{ paddingBottom: 250 }}
-          data={DATA}
+          data={profile}
           horizontal={false}
           numColumns={2}
           ItemSeparatorComponent={() => <View style={{ height: 20 }} />}
