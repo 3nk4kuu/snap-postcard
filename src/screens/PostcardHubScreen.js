@@ -19,6 +19,7 @@ export default function PostCardHubScreen({ title, navigation }) {
 
  //need to only show event by if attending or not
   //need to pull media by story type
+  //need to fix container visual so attending isn't hidden
 
 
   const fetchData = async () => {
@@ -32,10 +33,11 @@ export default function PostCardHubScreen({ title, navigation }) {
 
       const { data, error } = await supabase.
       from("events")
-      .select("*, event_media!event_media_event_fkey(media), invited!attending_event_fkey!inner(id, status)")
+      .select(`*, 
+        event_media!event_media_event_fkey(media), 
+        invited!attending_event_fkey!inner(id, status)`)
       .eq("invited.user", user.id)
-      .or("status.in.(yes,maybe),role.eq.host", { foreignTable: "invited" });
-      //.in("invited.status", ["yes", "maybe"]);
+      .in("invited.status", ["yes", "maybe"]);
 
        //Based on "profiles" "id", check if attending status in "invited" to "event" is "yes" or "maybe"
 
@@ -189,7 +191,7 @@ const AllEvents = useMemo(() => {
       {/* rest of page */}
 
       {/* Event list */}
-      <ScrollView style={{paddingBottom: 40}}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Live card */}
         {/*Live Card - current time is between start and end time */}
         <Text style={styles.sectionHeader}>Happening Now</Text>
@@ -249,13 +251,17 @@ const AllEvents = useMemo(() => {
                         {event.title}
                       </Card.Title>
                       <Text style={styles.listDate}>
-                        {formatMonthDay(event.start_datetime)} ·{" "}
+                      {formatMonthDay(event.start_datetime)} {" "}
+                      </Text>
+                      <Text style={styles.listDate}>
                         {formatTime(event.start_datetime)} –{" "}
                         {formatTime(event.end_datetime)}
                       </Text>
-                      <Text>
-                        {event.attending}
+                      <Text style={styles.listDescription}>
+                        {event.status}
                       </Text>
+                      
+    
                       <Text style={styles.listDescription}>{event.attending}</Text>
                     </View>
                     {/* edit button */}
@@ -305,6 +311,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   container: {
     width: "48%",
