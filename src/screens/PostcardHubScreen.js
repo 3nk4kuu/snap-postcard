@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { Card, FAB } from "@rn-vui/themed";
-import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity, Touchable,
+import { View,Text, TextInput, StyleSheet, Image, Button, TouchableOpacity,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import AddEvent from "../components/AddEvent";
@@ -15,7 +15,6 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [visible, setVisible] = useState(false); //remove if I pull addEvent
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
-  
 
  //need to only show event by if attending or not
   //need to pull media by story type
@@ -226,6 +225,7 @@ const AllEvents = useMemo(() => {
             </TouchableOpacity>
           </View>
         )}
+        
 
         {/* Event list, grouped by month */}
         {groupedEvents.map((section) => (
