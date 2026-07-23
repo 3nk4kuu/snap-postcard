@@ -33,8 +33,9 @@ export default function PostCardHubScreen({ title, navigation }) {
       const { data, error } = await supabase.
       from("events")
       .select(`*, 
-        event_media!event_media_event_fkey(media), 
+        event_media!event_media_event_fkey(media, media_type), 
         invited!invited_event_fkey!inner(id, status)`)
+      .eq("event_media.media_type", "story")
       .eq("invited.user", user.id)
       .in("invited.status", ["yes", "maybe"]);
 
