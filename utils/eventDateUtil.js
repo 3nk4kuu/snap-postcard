@@ -18,6 +18,7 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_INITIALS = ["S", "M", "T", "W", "T", "F", "S"];
 
 const HOUR_IN_MS = 60 * 60 * 1000;
+const localDateAdded = toLocalTimestamp(new Date());
 
 // 5:18pm -> 5:30pm, 6:49pm -> 7:00pm, 5:30pm stays 5:30pm
 function roundUpToHalfHour(date) {

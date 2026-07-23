@@ -3,6 +3,7 @@ import {
     View,
     Text,
     Image,
+    TouchableOpacity,
     StyleSheet,
     FlatList,
     Dimensions,
@@ -20,6 +21,8 @@ import {
 // wall-clock time instead of UTC
 import { toLocalTimestamp } from "../../utils/eventDateUtil";
 import { Card, FAB } from "@rn-vui/themed";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 // NOTE: requires `expo-image-picker` — if not installed yet:
 //   npx expo install expo-image-picker
 import * as ImagePicker from "expo-image-picker";
@@ -66,8 +69,11 @@ function rsvpBadgeColors(status) {
 
 
 export default function PostCardEventScreen({ route, navigation }) {
+    const insets = useSafeAreaInsets();
+
     // Grab the event object passed from the hub screen
     const initialEvent = route?.params?.event;
+    console.log(initialEvent)
 
     // Live copy of the event we're viewing — starts as whatever got passed
     // in via navigation, but gets refreshed from the DB after an edit saves.
@@ -83,8 +89,14 @@ export default function PostCardEventScreen({ route, navigation }) {
     // this user's role on this event ("host" / "guest"), kept so saving an RSVP never overwrites it
     const [myRole, setMyRole] = useState(null);
 
-    // current logged-in user (needed so RSVP knows *whose* row to upsert)
+    // current logged-in user (needed so RSVP knows *whose* row to upsert,
+    // and to check if they're the host for the Edit option)
     const [currentUserId, setCurrentUserId] = useState(null);
+
+    // only the host should see "Edit event" in the FAB menu
+    const isHost = Boolean(
+        currentUserId && event?.host && currentUserId === event.host
+    );
 
     // FAB action menu (Edit / Add to Story / Add to Media)
     const [menuOpen, setMenuOpen] = useState(false);
@@ -198,7 +210,11 @@ export default function PostCardEventScreen({ route, navigation }) {
         fetchCount();
     }, [event?.id]);
 
-    // get all media for this event (for the grid below)
+    // get all media for this event (for the grid below). Ordered newest
+    // first by date_added, with id as a tiebreaker in case two uploads land
+    // on the exact same timestamp — without the tiebreaker, ties can come
+    // back in an inconsistent order and the newest one might not actually
+    // end up first.
     const fetchMedia = async () => {
         if (!event?.id) return;
 
@@ -208,7 +224,8 @@ export default function PostCardEventScreen({ route, navigation }) {
             .from("event_media")
             .select("id, event, media, media_type, date_added, posted_by, profiles:posted_by(userName, avatar)")
             .eq("event", Number(event.id))
-            .order("date_added", { ascending: false });
+            .order("date_added", { ascending: true })
+            .order("id", { ascending: false });
 
         if (error) {
             console.error("Error fetching media:", error);
@@ -448,15 +465,20 @@ export default function PostCardEventScreen({ route, navigation }) {
 
     // simple relative-time formatter for the story viewer ("5m ago", etc.)
     // — no extra date library needed
+// simple relative-time formatter for the story viewer ("5m ago", etc.)
+    // — no extra date library needed
     function timeAgo(dateString) {
         if (!dateString) return "";
-        const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
+        const seconds = Math.max(
+            0,
+            Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
+        );
         if (seconds < 60) return "Just now";
         const minutes = Math.floor(seconds / 60);
         if (minutes < 60) return `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
         if (hours < 24) return `${hours}h ago`;
-        const days = Math.floor(hours / 24);
+        const days = Math.floor(hours);
         return `${days}d ago`;
     }
 
@@ -564,7 +586,14 @@ export default function PostCardEventScreen({ route, navigation }) {
                     </View>
                 </View>
             </View>
+            {/* Event Description */}
+            {event.description ? (
+                <Text style={styles.descriptionText}>{event.description}</Text>
+            ) : null}
 
+            <Text style={styles.host}>
+                Hosted by: @{host}
+            </Text>
             {/* Action Buttons Row - map + chat */}
             <View style={styles.actionsRow}>
                 <Pressable
@@ -632,14 +661,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                 />
             </View>
 
-            {/* Event Description */}
-            {event.description ? (
-                <Text style={styles.descriptionText}>{event.description}</Text>
-            ) : null}
-
-            <Text style={styles.host}>
-                Hosted by: @{host}
-            </Text>
 
             {/* Tab Header bar - Stories vs All Media */}
             <View style={styles.tabContainer}>
@@ -688,6 +709,35 @@ export default function PostCardEventScreen({ route, navigation }) {
 
     return (
         <View style={styles.screenRoot}>
+            {/* Custom header — replaces the default React Navigation stack
+                header for this screen. Shows the event's own title, with a
+                back button. Make sure this screen's Stack.Screen entry in
+                App.js has headerShown: false, otherwise you'll get two
+                headers stacked on top of each other. */}
+            <View style={[styles.header, { paddingTop: insets.top + 8, height: 56 + insets.top }]}>
+                <TouchableOpacity
+                    style={[styles.headerBack, { top: insets.top + 8 }]}
+                    onPress={() => {
+                        if (navigation.canGoBack()) {
+                            navigation.goBack();
+                        } else {
+                            // no back history (e.g. opened directly / deep link) —
+                            // fall back to the hub screen instead of doing nothing
+                            navigation.navigate("Postcard");
+                        }
+                    }}
+                    hitSlop={8}
+                >
+                    <Ionicons name="chevron-back" size={28} color="#000000" />
+                </TouchableOpacity>
+
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                    { "Event Details"}
+                </Text>
+            </View>
+
+            <View style={styles.headerDivider} />
+
             <FlatList
                 style={styles.container}
                 data={gridData}
@@ -731,23 +781,25 @@ export default function PostCardEventScreen({ route, navigation }) {
                 }
             />
 
-            {/* FAB action menu — Edit / Add to Story / Add to Media.
+            {/* FAB action menu — Edit (host only) / Add to Story / Add to Media.
                 Lives outside the FlatList now so it stays pinned to the
                 bottom-right of the screen instead of scrolling with content. */}
             {menuOpen && (
                 <View style={styles.fabMenu}>
-                    <Pressable
-                        style={styles.fabMenuItem}
-                        onPress={() => {
-                            setMenuOpen(false);
-                            navigation.navigate("PostcardCreateEventScreen", {
-                                eventToEdit: currentEvent,
-                                onSaved: refreshEvents,
-                            });
-                        }}
-                    >
-                        <Text style={styles.fabMenuText}>Edit event</Text>
-                    </Pressable>
+                    {isHost && (
+                        <Pressable
+                            style={styles.fabMenuItem}
+                            onPress={() => {
+                                setMenuOpen(false);
+                                navigation.navigate("PostcardCreateEventScreen", {
+                                    eventToEdit: currentEvent,
+                                    onSaved: refreshEvents,
+                                });
+                            }}
+                        >
+                            <Text style={styles.fabMenuText}>Edit event</Text>
+                        </Pressable>
+                    )}
                     <Pressable
                         style={styles.fabMenuItem}
                         onPress={() => pickAndUpload("photo", "library")}
@@ -914,7 +966,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                     onPress={() => setAttendeesVisible(false)}
                 >
                     {/* stop taps inside the sheet itself from closing it */}
-                    <Pressable style={styles.attendeesSheet} onPress={() => {}}>
+                    <Pressable style={styles.attendeesSheet} onPress={() => { }}>
                         <View style={styles.attendeesHandle} />
                         <Text style={styles.attendeesTitle}>
                             {avatar.length} invited · {attendingCount} going
@@ -1007,6 +1059,27 @@ const styles = StyleSheet.create({
     },
     columnWrapper: {
         justifyContent: "space-between",
+    },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 48, // leave room for the back button on the left
+        backgroundColor: "#FFF",
+    },
+    headerBack: {
+        position: "absolute",
+        left: 12,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#000000",
+    },
+    headerDivider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: "#D1D1D6",
     },
     headerContainer: {
         marginBottom: 16,
@@ -1107,6 +1180,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#575757",
         marginTop: 6,
+        marginBottom: 10,
     },
     attending: {
         fontSize: 14,
