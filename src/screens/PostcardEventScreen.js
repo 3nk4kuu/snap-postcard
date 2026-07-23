@@ -66,72 +66,143 @@ function rsvpBadgeColors(status) {
 }
 
 export default function PostCardEventScreen({ route, navigation }) {
-  const insets = useSafeAreaInsets();
+    const insets = useSafeAreaInsets();
 
-  // Grab the event object passed from the hub screen
-  const initialEvent = route?.params?.event;
-  console.log(initialEvent);
+    const timeAgo = (dateString) => {
+        if (!dateString) return "";
 
-  // Live copy of the event we're viewing — starts as whatever got passed
-  // in via navigation, but gets refreshed from the DB after an edit saves.
-  const [currentEvent, setCurrentEvent] = useState(initialEvent);
-  const event = currentEvent; // keep the rest of the file's `event.` refs working
+        const postedTime = new Date(dateString).getTime();
 
-  // Attendee count + RSVP state
-  const [attendingCount, setAttendingCount] = useState(0);
-  const [activeTab, setActiveTab] = useState("Stories");
-  const [rsvpValue, setRsvpValue] = useState("");
-  const [isSavingRsvp, setIsSavingRsvp] = useState(false);
+        if (Number.isNaN(postedTime)) {
+            console.log("Invalid date:", dateString);
+            return "";
+        }
 
-  // this user's role on this event ("host" / "guest"), kept so saving an RSVP never overwrites it
-  const [myRole, setMyRole] = useState(null);
+        const minutes = Math.max(
+            0,
+            Math.floor((Date.now() - postedTime) / 60000)
+        );
 
-  // current logged-in user (needed so RSVP knows *whose* row to upsert,
-  // and to check if they're the host for the Edit option)
-  const [currentUserId, setCurrentUserId] = useState(null);
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes} min ago`;
 
-  // only the host should see "Edit event" in the FAB menu
-  const isHost = Boolean(
-    currentUserId && event?.host && currentUserId === event.host,
-  );
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+            return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+        }
 
-  // FAB action menu (Edit / Add to Story / Add to Media)
-  const [menuOpen, setMenuOpen] = useState(false);
+        const days = Math.floor(hours / 24);
+        return `${days} day${days === 1 ? "" : "s"} ago`;
+    };
 
-  // Story viewer modal (opens when tapping the event image)
-  const [storyViewerVisible, setStoryViewerVisible] = useState(false);
-  // which story is actually being shown in the viewer — set when tapping
-  // either the header circle image or any story tile in the grid
-  const [selectedStory, setSelectedStory] = useState(null);
+    // Grab the event object passed from the hub screen
+    const initialEvent = route?.params?.event;
+    console.log(initialEvent)
 
-  // media preview/save modal — opens when tapping a photo (non-story) tile
-  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState(null);
-  const [isSavingMedia, setIsSavingMedia] = useState(false);
+    // Live copy of the event we're viewing — starts as whatever got passed
+    // in via navigation, but gets refreshed from the DB after an edit saves.
+    const [currentEvent, setCurrentEvent] = useState(initialEvent);
+    const event = currentEvent; // keep the rest of the file's `event.` refs working
 
-  // Media grid state
-  const [eventMedia, setEventMedia] = useState([]);
-  const [isLoadingMedia, setIsLoadingMedia] = useState(true);
+    // Attendee count + RSVP state
+    const [attendingCount, setAttendingCount] = useState(0);
+    const [activeTab, setActiveTab] = useState("Stories");
+    const [rsvpValue, setRsvpValue] = useState("");
+    const [isSavingRsvp, setIsSavingRsvp] = useState(false);
 
-  // Avatar stack state - everyone invited to this event, with their RSVP
-  const [avatar, setAvatar] = useState([]);
-  // bottom sheet listing everyone invited — opens when tapping the
-  // "+ X attending" badge
-  const [attendeesVisible, setAttendeesVisible] = useState(false);
-  const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
+    // this user's role on this event ("host" / "guest"), kept so saving an RSVP never overwrites it
+    const [myRole, setMyRole] = useState(null);
 
-  //Host
-  const [host, setHostName] = useState([]);
+    // current logged-in user (needed so RSVP knows *whose* row to upsert,
+    // and to check if they're the host for the Edit option)
+    const [currentUserId, setCurrentUserId] = useState(null);
 
-  // get the currently logged-in user's id
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        console.error("Error fetching current user:", error);
-        return;
-      }
-      setCurrentUserId(data?.user?.id ?? null);
+    // only the host should see "Edit event" in the FAB menu
+    const isHost = Boolean(
+        currentUserId && event?.host && currentUserId === event.host
+    );
+
+    // FAB action menu (Edit / Add to Story / Add to Media)
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    // Story viewer modal (opens when tapping the event image)
+    const [storyViewerVisible, setStoryViewerVisible] = useState(false);
+    // which story is actually being shown in the viewer — set when tapping
+    // either the header circle image or any story tile in the grid
+    const [selectedStory, setSelectedStory] = useState(null);
+
+    // media preview/save modal — opens when tapping a photo (non-story) tile
+    const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+    const [selectedMedia, setSelectedMedia] = useState(null);
+    const [isSavingMedia, setIsSavingMedia] = useState(false);
+
+    // Media grid state
+    const [eventMedia, setEventMedia] = useState([]);
+    const [isLoadingMedia, setIsLoadingMedia] = useState(true);
+
+    // Avatar stack state - everyone invited to this event, with their RSVP
+    const [avatar, setAvatar] = useState([]);
+    // bottom sheet listing everyone invited — opens when tapping the
+    // "+ X attending" badge
+    const [attendeesVisible, setAttendeesVisible] = useState(false);
+    const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
+
+    //Host
+    const [host, setHostName] = useState([]);
+
+    // get the currently logged-in user's id
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data, error } = await supabase.auth.getUser();
+            if (error) {
+                console.error("Error fetching current user:", error);
+                return;
+            }
+            setCurrentUserId(data?.user?.id ?? null);
+        };
+        fetchUser();
+    }, []);
+
+    // get the event row itself (title/description/start_datetime/location/host)
+    const fetchEventDetails = async () => {
+        if (!initialEvent?.id) return;
+
+        const { data, error } = await supabase
+            .from("events")
+            .select("*")
+            .eq("id", initialEvent.id)
+            .single();
+
+        if (error) {
+            console.error("Error fetching event details:", error);
+            return;
+        }
+
+        if (data) {
+            setCurrentEvent(data);
+        }
+    };
+
+    useEffect(() => {
+        fetchEventDetails();
+    }, [initialEvent?.id]);
+
+    // get host for this event
+    const fetchHost = async () => {
+        if (!event?.host) return;
+
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("userName")
+            .eq("id", event.host)
+            .single();
+
+        if (error) {
+            console.error("Error fetching host profile:", error);
+            return;
+        }
+
+        setHostName(data?.userName ?? "Unknown host");
     };
     fetchUser();
   }, []);
@@ -160,9 +231,33 @@ export default function PostCardEventScreen({ route, navigation }) {
     fetchEventDetails();
   }, [initialEvent?.id]);
 
-  // get host for this event
-  const fetchHost = async () => {
-    if (!event?.host) return;
+    useEffect(() => {
+        fetchCount();
+    }, [event?.id]);
+
+    // get all media for this event (for the grid below). Ordered newest
+    // first by date_added, with id as a tiebreaker in case two uploads land
+    // on the exact same timestamp — without the tiebreaker, ties can come
+    // back in an inconsistent order and the newest one might not actually
+    // end up first.
+    const fetchMedia = async () => {
+        if (!event?.id) return;
+
+        setIsLoadingMedia(true);
+
+        const { data, error } = await supabase
+            .from("event_media")
+            .select("id, event, media, media_type, date_added, posted_by, profiles:posted_by(userName, avatar)")
+            .eq("event", Number(event.id))
+            .order("date_added", { ascending: false })
+            .order("id", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching media:", error);
+            setEventMedia([]);
+        } else {
+            setEventMedia(data ?? []);
+        }
 
     const { data, error } = await supabase
       .from("profiles")
@@ -322,13 +417,50 @@ export default function PostCardEventScreen({ route, navigation }) {
       { onConflict: "event,user" },
     );
 
-    if (error) {
-      console.error("Error saving RSVP:", error);
-    } else {
-      setMyRole(roleToKeep);
-      fetchCount(); // attending count may have changed
-      fetchAvatar(); // and so may this person's row in the list
-    }
+
+        if (result.canceled) return;
+
+        const file = result.assets[0];
+        const fileExt = file.uri.split(".").pop().toLowerCase();
+        const folder = mediaType === "story" ? STORY_FOLDER : MEDIA_FOLDER;
+        const filePath = `${folder}/${event.id}_${Date.now()}.${fileExt}`;
+
+        // derive contentType from the actual extension rather than trusting
+        // file.mimeType — that can come back undefined on some platforms,
+        // and a mismatched Content-Type (e.g. saying jpeg for real png
+        // bytes) makes iOS's image decoder fail with a generic download error
+        const extToMimeType = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            heic: "image/heic",
+            mp4: "video/mp4",
+            mov: "video/quicktime",
+        };
+        const contentType = extToMimeType[fileExt] ?? file.mimeType ?? "image/jpeg";
+
+        try {
+            // fetch(uri).blob() is unreliable in RN/Expo — it can silently
+            // produce a corrupted/empty blob, which is why the upload
+            // "succeeds" but the resulting file won't actually load.
+            // Reading as base64 and decoding to an ArrayBuffer is the
+            // reliable pattern for Expo + Supabase Storage uploads.
+            const base64 = await FileSystem.readAsStringAsync(file.uri, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const { error: uploadError } = await supabase.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, decode(base64), {
+                    contentType,
+                });
+
+            if (uploadError) {
+                console.error("Error uploading file:", uploadError);
+                return;
+            }
 
     setIsSavingRsvp(false);
   };
@@ -412,167 +544,11 @@ export default function PostCardEventScreen({ route, navigation }) {
       mp4: "video/mp4",
       mov: "video/quicktime",
     };
-    const contentType = extToMimeType[fileExt] ?? file.mimeType ?? "image/jpeg";
 
-    try {
-      // fetch(uri).blob() is unreliable in RN/Expo — it can silently
-      // produce a corrupted/empty blob, which is why the upload
-      // "succeeds" but the resulting file won't actually load.
-      // Reading as base64 and decoding to an ArrayBuffer is the
-      // reliable pattern for Expo + Supabase Storage uploads.
-      const base64 = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+    // most recently uploaded story, for the tap-to-view-story modal and
+    // for the header's circular image
+    const latestStory = eventMedia.find((item) => item.media_type === "story");
 
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(filePath, decode(base64), {
-          contentType,
-        });
-
-      if (uploadError) {
-        console.error("Error uploading file:", uploadError);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from(STORAGE_BUCKET)
-        .getPublicUrl(filePath);
-
-      const { error: insertError } = await supabase.from("event_media").insert([
-        {
-          event: Number(event.id),
-          media: publicUrlData.publicUrl,
-          media_type: mediaType,
-          // date_added is a timestamp column (no time zone), so toISOString() would store UTC and make timeAgo read every post as hours off — local wall-clock keeps them in sync with what the device thinks "now" is
-          date_added: toLocalTimestamp(new Date()),
-          posted_by: currentUserId,
-        },
-      ]);
-
-      if (insertError) {
-        console.error("Error saving media row:", insertError);
-        return;
-      }
-
-      fetchMedia();
-    } catch (err) {
-      console.error("Unexpected upload error:", err);
-    }
-  };
-
-  // most recently uploaded story, for the tap-to-view-story modal and
-  // for the header's circular image
-  const latestStory = eventMedia.find((item) => item.media_type === "story");
-
-  // simple relative-time formatter for the story viewer ("5m ago", etc.)
-  // — no extra date library needed
-  // simple relative-time formatter for the story viewer ("5m ago", etc.)
-  // — no extra date library needed
-  function timeAgo(dateString) {
-    if (!dateString) return "";
-    const seconds = Math.max(
-      0,
-      Math.floor((Date.now() - new Date(dateString).getTime()) / 1000),
-    );
-    if (seconds < 60) return "Just now";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours);
-    return `${days}d ago`;
-  }
-
-  // downloads a story/media URL and saves it to the device's photo
-  // library. MediaLibrary.saveToLibraryAsync needs a local file URI, not
-  // a remote https URL, so we download it to a temp path first.
-  const saveMediaToDevice = async (remoteUrl) => {
-    if (!remoteUrl || isSavingMedia) return;
-    setIsSavingMedia(true);
-
-    try {
-      const permission = await MediaLibrary.requestPermissionsAsync();
-      if (!permission.granted) {
-        console.error("Media library save permission not granted");
-        return;
-      }
-
-      const fileExt = remoteUrl.split(".").pop().split("?")[0];
-      const localUri = `${FileSystem.cacheDirectory}saved_${Date.now()}.${fileExt}`;
-
-      const { uri: downloadedUri } = await FileSystem.downloadAsync(
-        remoteUrl,
-        localUri,
-      );
-
-      await MediaLibrary.saveToLibraryAsync(downloadedUri);
-      console.log("Saved to device photo library:", downloadedUri);
-    } catch (err) {
-      console.error("Error saving media to device:", err);
-    } finally {
-      setIsSavingMedia(false);
-    }
-  };
-
-  // Header element containing top event details
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      {/* Top event photo + title/date/attendee pill */}
-      <View style={styles.eventInfoSection}>
-        <Pressable
-          onPress={() => {
-            setSelectedStory(latestStory);
-            setStoryViewerVisible(true);
-          }}
-        >
-          <Image
-            source={{
-              uri:
-                latestStory?.media ||
-                event.image_url ||
-                "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
-            }}
-            style={styles.image}
-          />
-        </Pressable>
-
-        <View style={styles.eventDetails}>
-          <Text style={styles.title}>{event.title || "Untitled Event"}</Text>
-
-          {/* format date and time and put in pill */}
-          <View style={styles.datePill}>
-            <Text style={styles.dateText}>
-              {event.start_datetime
-                ? `${formatEventDate(event.start_datetime)} • ${formatTime(
-                    event.start_datetime,
-                  )}`
-                : "No date set"}
-            </Text>
-          </View>
-
-          {/* Avatars & extra attendees row */}
-          <View style={styles.avatarRow}>
-            <View style={styles.avatarStack}>
-              {avatar.slice(0, 3).map((profile, index) => (
-                <Image
-                  key={profile.userName ?? index}
-                  source={{ uri: profile.avatar }}
-                  style={[
-                    styles.stackedAvatar,
-                    index > 0 && styles.overlappingAvatar,
-                  ]}
-                  onError={(error) => {
-                    console.log(
-                      "Avatar failed:",
-                      profile.userName,
-                      profile.avatar,
-                      error.nativeEvent.error,
-                    );
-                  }}
-                />
-              ))}
-            </View>
 
             {/* only the overflow gets a "+" — under three people the plain count reads better than "+ -2" */}
             <Pressable
@@ -864,25 +840,45 @@ export default function PostCardEventScreen({ route, navigation }) {
                 onPress={() => setStoryViewerVisible(false)}
               />
 
-              {/* progress bar — single segment since this only
-                                shows one story at a time, not a full carousel */}
-              <View style={styles.storyProgressTrack}>
-                <View style={styles.storyProgressFill} />
-              </View>
+                    {/* Avatars & extra attendees row */}
+                    <View style={styles.avatarRow}>
+                        <View style={styles.avatarStack}>
+                            {avatar
+                                .filter((profile) => profile.status === "yes")
+                                .slice(0, 3)
+                                .map((profile, index) => (
+                                    <Image
+                                        key={profile.user ?? profile.userName ?? index}
+                                        source={{ uri: profile.avatar }}
+                                        style={[
+                                            styles.stackedAvatar,
+                                            index > 0 && styles.overlappingAvatar,
+                                        ]}
+                                        onError={(error) => {
+                                            console.log(
+                                                "Avatar failed:",
+                                                profile.userName,
+                                                profile.avatar,
+                                                error.nativeEvent.error
+                                            );
+                                        }}
+                                    />
+                                ))}
+                        </View>
 
-              {/* poster info row */}
-              <View style={styles.storyHeaderRow}>
-                <Image
-                  source={{ uri: selectedStory.profiles?.avatar }}
-                  style={styles.storyViewerAvatar}
-                />
-                <View style={styles.storyHeaderText}>
-                  <Text style={styles.storyViewerUsername}>
-                    {selectedStory.profiles?.userName ?? "Someone"}
-                  </Text>
-                  <Text style={styles.storyViewerTimeAgo}>
-                    {timeAgo(selectedStory.date_added)}
-                  </Text>
+
+                        {/* only the overflow gets a "+" — under three people the plain count reads better than "+ -2" */}
+                        <Pressable
+                            style={styles.badgePill}
+                            onPress={() => setAttendeesVisible(true)}
+                        >
+                            <Text style={styles.badgeText}>
+                                {attendingCount > 3
+                                    ? `+ ${attendingCount - 3} attending`
+                                    : `${attendingCount} attending`}
+                            </Text>
+                        </Pressable>
+                    </View>
                 </View>
                 <Pressable
                   onPress={() => saveMediaToDevice(selectedStory.media)}
@@ -957,6 +953,10 @@ export default function PostCardEventScreen({ route, navigation }) {
         </View>
       </Modal>
 
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                    {"Event Details"}
+                </Text>
+            </View>
       {/* Attendees bottom sheet — opens from the "+ X attending" badge.
                 Lists everyone invited with their RSVP status on the right. */}
       <Modal
