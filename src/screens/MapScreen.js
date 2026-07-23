@@ -158,7 +158,7 @@ export default function MapScreen({ navigation, route }) {
               <View style={styles.myBitmoji}>
                 <Image
                   source={require("../../assets/event-badge.png")}
-                  style={{ width: 50, height: 50 }}
+                  style={styles.media}
                 />
                 <View style={styles.bitmojiTextContainer}>
                   <Text style={styles.bitmojiText}>Postcard</Text>
@@ -230,6 +230,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     elevation: 5,
+  },
+  media: {
+  width: 50, 
+  height: 50
   },
   shadow: {
     shadowColor: "rgba(0, 0, 0)",

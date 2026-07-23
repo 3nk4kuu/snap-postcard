@@ -16,21 +16,27 @@ export default function PostCardHubScreen({ title, navigation }) {
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState(""); //for setting search 
 
-  // NOTE: removed a copy-pasted avatar/attending-count block here that
-  // referenced `event` and `attendingCount` — neither exists in this
-  // component (this screen lists many events, not one), so it was
-  // throwing a ReferenceError on every render. If you want attendee
-  // avatars/counts on these cards, that needs to be fetched per-event
-  // (e.g. joined into the fetchData query below), not as one shared
-  // fetchAvatar() call like the single-event detail screen uses.
+ //need to only show event by if attending or not
+  //need to pull media by story type
+
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*, event_media!event_media_event_fkey(media)");
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+      console.error("No authenticated user:", userError);
+      return;
+      }
 
-      //console.log("Fetched data:", data);
-      //console.log("Fetch stuff");
-      //console.log("Fetch error:", error);
+
+      const { data, error } = await supabase.
+      from("events")
+      .select("*, event_media!event_media_event_fkey(media), invited!attending_event_fkey!inner(id, status)")
+      .eq("invited.user", user.id)
+      .or("status.in.(yes,maybe),role.eq.host", { foreignTable: "invited" });
+      //.in("invited.status", ["yes", "maybe"]);
+
+       //Based on "profiles" "id", check if attending status in "invited" to "event" is "yes" or "maybe"
 
   
       if (error) {
@@ -39,6 +45,8 @@ export default function PostCardHubScreen({ title, navigation }) {
         const merged = data.map((event) => ({
           ...event,
           media: event.event_media?.[0]?.media ?? null, //if event_media exists, get first item's iamge url
+          status: event.invited?.[0]?.status ?? null,
+          role: event.invited?.[0]?.role ?? null,
         }));
 
         setEvents(merged);
@@ -88,25 +96,19 @@ export default function PostCardHubScreen({ title, navigation }) {
     });
   }, [filteredEvents]);
 
-  // all upcoming events (excluding the live event)
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-
-    return filteredEvents.filter((event) => {
-      const start = new Date(event.start_datetime);
-
-      return start > now && event.id !== liveEvent?.id;
-    });
-  }, [filteredEvents, liveEvent]);
-
-  //filter events shown by if attending or not
+  // all events excluding the live event
+const AllEvents = useMemo(() => {
+  return filteredEvents.filter((event) => event.id !== liveEvent?.id);
+}, [filteredEvents, liveEvent]);
 
 
-  // Group upcoming events by month
+
+
+  // Group all events by month
   const groupedEvents = useMemo(() => {
     const groups = {};
 
-    upcomingEvents.forEach((event) => {
+    AllEvents.forEach((event) => {
       const month = new Date(event.start_datetime).toLocaleString("default", {
         month: "long",
         year: "numeric",
@@ -126,7 +128,7 @@ export default function PostCardHubScreen({ title, navigation }) {
           (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
         ),
       }));
-  }, [upcomingEvents]);
+  }, [AllEvents]);
 
   return (
     // entire screen
@@ -186,7 +188,7 @@ export default function PostCardHubScreen({ title, navigation }) {
       {/* rest of page */}
 
       {/* Event list */}
-      <ScrollView>
+      <ScrollView style={{paddingBottom: 40}}>
         {/* Live card */}
         {/*Live Card - current time is between start and end time */}
         <Text style={styles.sectionHeader}>Happening Now</Text>
@@ -217,7 +219,7 @@ export default function PostCardHubScreen({ title, navigation }) {
                   {formatTime(liveEvent.end_datetime)}
                 </Text>
                 <Text style={styles.liveCardDescription}>
-                  {liveEvent.attending}
+                  {liveEvent.status}
                 </Text>
               </View>
             </TouchableOpacity>
