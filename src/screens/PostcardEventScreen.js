@@ -18,6 +18,9 @@ import {
     formatEventDate,
     formatTime,
 } from "../../utils/dateFormatUtil";
+// same helper the create/edit screen uses, so timestamp columns get local
+// wall-clock time instead of UTC
+import { toLocalTimestamp } from "../../utils/eventDateUtil";
 import { Card, FAB } from "@rn-vui/themed";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -34,6 +37,28 @@ const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
 const STORAGE_BUCKET = "event-media";
 const MEDIA_FOLDER = "uploaded-media";
 const STORY_FOLDER = "stories";
+
+// RSVP button colors by status — used both for the segmented buttons and for the status pills in the attendees sheet
+const RSVP_COLORS = {
+    yes: "#2ECC4E",   // green
+    maybe: "#FFC400", // yellow
+    no: "#FD2646",    // red
+};
+
+// how each stored status reads in the attendees list
+const RSVP_LABELS = {
+    yes: "Going",
+    maybe: "Maybe",
+    no: "Can't go",
+};
+
+// pill colors for an attendee's saved status — null/undefined means they haven't answered yet
+function rsvpBadgeColors(status) {
+    if (status === "yes") return { background: RSVP_COLORS.yes, text: "#FFFFFF" };
+    if (status === "maybe") return { background: RSVP_COLORS.maybe, text: "#000000" };
+    if (status === "no") return { background: RSVP_COLORS.no, text: "#FFFFFF" };
+    return { background: "#E5E5EA", text: "#6E6E73" };
+}
 
 
 export default function PostCardEventScreen({ route, navigation }) {
@@ -80,7 +105,7 @@ export default function PostCardEventScreen({ route, navigation }) {
     const [eventMedia, setEventMedia] = useState([]);
     const [isLoadingMedia, setIsLoadingMedia] = useState(true);
 
-    // Avatar stack state - avatars of everyone invited to this event
+    // Avatar stack state - everyone invited to this event, with their RSVP
     const [avatar, setAvatar] = useState([]);
     // bottom sheet listing everyone invited — opens when tapping the
     // "+ X attending" badge
@@ -200,7 +225,8 @@ export default function PostCardEventScreen({ route, navigation }) {
         fetchMedia();
     }, [event?.id]);
 
-    // get avatars for everyone invited to this event
+    // get everyone invited to this event — status and role come along so the
+    // attendees sheet can show each person's RSVP next to their name
     const fetchAvatar = async () => {
         if (!event?.id) return;
 
@@ -208,16 +234,23 @@ export default function PostCardEventScreen({ route, navigation }) {
 
         const { data, error } = await supabase
             .from("invited")
-            .select("user, profiles(userName, avatar)")
+            .select("user, status, role, profiles(userName, avatar)")
             .eq("event", Number(event.id));
 
         if (error) {
             console.error("Error fetching invited avatars:", error);
             setAvatar([]);
         } else {
+            // flatten the joined profile up so the avatar stack and the attendees list can both read straight off each row
             const invitedProfiles = (data ?? [])
-                .map((row) => row.profiles)
-                .filter(Boolean);
+                .filter((row) => row.profiles)
+                .map((row) => ({
+                    user: row.user,
+                    status: row.status,
+                    role: row.role,
+                    userName: row.profiles.userName,
+                    avatar: row.profiles.avatar,
+                }));
             setAvatar(invitedProfiles);
         }
 
@@ -228,14 +261,14 @@ export default function PostCardEventScreen({ route, navigation }) {
         fetchAvatar();
     }, [event?.id]);
 
-    // get this user's existing RSVP for this event, so the segmented
-    // button shows their actual saved choice instead of resetting blank
+    // get this user's existing RSVP for this event, so the segmented button shows their actual saved choice instead of resetting blank
+    // role comes along too so saving an RSVP can preserve it.
     const fetchMyRsvp = async () => {
         if (!event?.id || !currentUserId) return;
 
         const { data, error } = await supabase
             .from("invited")
-            .select("status")
+            .select("status, role")
             .eq("event", Number(event.id))
             .eq("user", currentUserId)
             .maybeSingle();
@@ -246,6 +279,7 @@ export default function PostCardEventScreen({ route, navigation }) {
         }
 
         setRsvpValue(data?.status ?? "");
+        setMyRole(data?.role ?? null);
     };
 
     useEffect(() => {
@@ -253,29 +287,40 @@ export default function PostCardEventScreen({ route, navigation }) {
     }, [event?.id, currentUserId]);
 
     // called when the user taps Yes/Maybe/No — saves immediately
+    // role is carried over from the existing row so a host RSVPing to their own event doesn't demote themselves to "guest"
+    // only a brand new row falls back to "guest"
     const handleRsvpChange = async (newValue) => {
         setRsvpValue(newValue); // update UI right away
         if (!event?.id || !currentUserId) return;
 
         setIsSavingRsvp(true);
 
+        const roleToKeep = myRole ?? "guest";
+
         const { error } = await supabase
             .from("invited")
             .upsert(
-                { event: Number(event.id), user: currentUserId, status: newValue, role: "guest" },
+                {
+                    event: Number(event.id),
+                    user: currentUserId,
+                    status: newValue,
+                    role: roleToKeep,
+                },
                 { onConflict: "event,user" }
             );
 
         if (error) {
             console.error("Error saving RSVP:", error);
         } else {
-            fetchCount(); // attending count may have changed
+            setMyRole(roleToKeep);
+            fetchCount();  // attending count may have changed
+            fetchAvatar(); // and so may this person's row in the list
         }
 
         setIsSavingRsvp(false);
     };
 
-    // re-run all of this event's fetches — used after the edit dialog closes
+    // re-run all of this event's fetches — used after the edit screen saves
     const refreshEvents = async () => {
         await Promise.all([
             fetchEventDetails(),
@@ -283,6 +328,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             fetchCount(),
             fetchMedia(),
             fetchAvatar(),
+            fetchMyRsvp(),
         ]);
     };
 
@@ -380,7 +426,8 @@ export default function PostCardEventScreen({ route, navigation }) {
                     event: Number(event.id),
                     media: publicUrlData.publicUrl,
                     media_type: mediaType,
-                    date_added: new Date().toISOString(),
+                    // date_added is a timestamp column (no time zone), so toISOString() would store UTC and make timeAgo read every post as hours off — local wall-clock keeps them in sync with what the device thinks "now" is
+                    date_added: toLocalTimestamp(new Date()),
                     posted_by: currentUserId,
                 },
             ]);
@@ -445,14 +492,6 @@ export default function PostCardEventScreen({ route, navigation }) {
         }
     };
 
-    // RSVP button colors by status — used to color the segment when it's
-    // the one currently selected
-    const RSVP_COLORS = {
-        yes: "#2ECC4E",   // green
-        maybe: "#FFC400", // yellow
-        no: "#FD2646",    // red
-    };
-
     // Header element containing top event details
     const renderHeader = () => (
         <View style={styles.headerContainer}>
@@ -512,6 +551,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                             ))}
                         </View>
 
+                        {/* only the overflow gets a "+" — under three people the plain count reads better than "+ -2" */}
                         <Pressable
                             style={styles.badgePill}
                             onPress={() => setAttendeesVisible(true)}
@@ -890,7 +930,8 @@ export default function PostCardEventScreen({ route, navigation }) {
                 </View>
             </Modal>
 
-            {/* Attendees bottom sheet — opens from the "+ X attending" badge */}
+            {/* Attendees bottom sheet — opens from the "+ X attending" badge.
+                Lists everyone invited with their RSVP status on the right. */}
             <Modal
                 visible={attendeesVisible}
                 transparent={true}
@@ -906,25 +947,53 @@ export default function PostCardEventScreen({ route, navigation }) {
                     <Pressable style={styles.attendeesSheet} onPress={() => { }}>
                         <View style={styles.attendeesHandle} />
                         <Text style={styles.attendeesTitle}>
-                            {avatar.length} {avatar.length === 1 ? "person" : "people"} attending
+                            {avatar.length} invited · {attendingCount} going
                         </Text>
                         <FlatList
                             data={avatar}
-                            keyExtractor={(item, index) => item.userName ?? String(index)}
-                            renderItem={({ item }) => (
-                                <View style={styles.attendeeRow}>
-                                    <Image
-                                        source={{ uri: item.avatar }}
-                                        style={styles.attendeeAvatar}
-                                    />
-                                    <Text style={styles.attendeeName}>
-                                        {item.userName ?? "Unknown"}
-                                    </Text>
-                                </View>
-                            )}
+                            keyExtractor={(item, index) => item.user ?? String(index)}
+                            renderItem={({ item }) => {
+                                const badge = rsvpBadgeColors(item.status);
+
+                                return (
+                                    <View style={styles.attendeeRow}>
+                                        <Image
+                                            source={{ uri: item.avatar }}
+                                            style={styles.attendeeAvatar}
+                                        />
+
+                                        <View style={styles.attendeeNameBlock}>
+                                            <Text style={styles.attendeeName}>
+                                                {item.userName ?? "Unknown"}
+                                            </Text>
+                                            {item.role === "host" ? (
+                                                <Text style={styles.attendeeRole}>Host</Text>
+                                            ) : null}
+                                        </View>
+
+                                        <View
+                                            style={[
+                                                styles.attendeeStatusPill,
+                                                { backgroundColor: badge.background },
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.attendeeStatusText,
+                                                    { color: badge.text },
+                                                ]}
+                                            >
+                                                {RSVP_LABELS[item.status] ?? "No reply"}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            }}
                             ListEmptyComponent={
                                 <Text style={styles.attendeesEmptyText}>
-                                    No one invited yet.
+                                    {isLoadingAvatar
+                                        ? "Loading..."
+                                        : "No one invited yet."}
                                 </Text>
                             }
                         />
@@ -1338,10 +1407,29 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFE1",
         marginRight: 12,
     },
+    attendeeNameBlock: {
+        flex: 1,
+    },
     attendeeName: {
         fontSize: 15,
         fontWeight: "600",
         color: "#000000",
+    },
+    attendeeRole: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#8E8E93",
+        marginTop: 2,
+    },
+    attendeeStatusPill: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        marginLeft: 10,
+    },
+    attendeeStatusText: {
+        fontSize: 12,
+        fontWeight: "700",
     },
     attendeesEmptyText: {
         textAlign: "center",
