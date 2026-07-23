@@ -7,10 +7,7 @@ import {
     FlatList,
     Dimensions,
     Pressable,
-<<<<<<< HEAD
     Modal,
-=======
->>>>>>> main
 } from "react-native";
 import { SegmentedButtons } from "react-native-paper";
 import { supabase } from "../../utils/hooks/supabase";
@@ -19,20 +16,16 @@ import {
     formatEventDate,
     formatTime,
 } from "../../utils/dateFormatUtil";
-<<<<<<< HEAD
 import { Card, FAB } from "@rn-vui/themed";
 import UpdateEvent from "../components/EditEvent";
 import * as ImagePicker from "expo-image-picker";
 // moved to this legacy subpath
 import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
-=======
->>>>>>> main
 
 // make card grid
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 52) / 2; // 2 columns w/ padding
-<<<<<<< HEAD
 
 // supabase Storage setup
 const STORAGE_BUCKET = "event-media";
@@ -159,50 +152,10 @@ export default function PostCardEventScreen({ route, navigation }) {
     };
 
     useEffect(() => {
-=======
-
-
-export default function PostCardEventScreen({ route, navigation }) {
-    // Grab the event object passed from the hub screen
-    const event = route?.params?.event;
-
-    // Attendee count + RSVP state
-    const [attendingCount, setAttendingCount] = useState(0);
-    const [activeTab, setActiveTab] = useState("Stories");
-    const [rsvpValue, setRsvpValue] = useState("");
-
-    // Media grid state
-    const [eventMedia, setEventMedia] = useState([]);
-    const [isLoadingMedia, setIsLoadingMedia] = useState(true);
-
-    // Avatar stack state - avatars of everyone invited to this event
-    const [avatar, setAvatar] = useState([]);
-    const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
-
-    // get attending count for this event
-    useEffect(() => {
-        if (!event?.id) return;
-
-        const fetchCount = async () => {
-            const { count, error } = await supabase
-                .from("invited")
-                .select("*", { count: "exact", head: true })
-                .eq("event", Number(event.id));
-
-            if (error) {
-                console.error("Error fetching attending count:", error);
-                return;
-            }
-
-            setAttendingCount(count ?? 0);
-        };
-
->>>>>>> main
         fetchCount();
     }, [event?.id]);
 
     // get all media for this event (for the grid below)
-<<<<<<< HEAD
     const fetchMedia = async () => {
         if (!event?.id) return;
 
@@ -225,40 +178,10 @@ export default function PostCardEventScreen({ route, navigation }) {
     };
 
     useEffect(() => {
-=======
-    useEffect(() => {
-        if (!event?.id) return;
-
-        const fetchMedia = async () => {
-            setIsLoadingMedia(true);
-
-            const { data, error } = await supabase
-                .from("event_media")
-                .select("id, event, media, date_added")
-                .eq("event", Number(event.id));
-
-            // leaving these logs in for now, useful for debugging media loading
-            console.log("Querying event:", Number(event.id));
-            console.log("Fetched media:", data);
-            console.log("Media error:", error);
-
-            if (error) {
-                console.error("Error fetching media:", error);
-                setEventMedia([]);
-            } else {
-                console.log("Fetched media:", data);
-                setEventMedia(data ?? []);
-            }
-
-            setIsLoadingMedia(false);
-        };
-
->>>>>>> main
         fetchMedia();
     }, [event?.id]);
 
     // get avatars for everyone invited to this event
-<<<<<<< HEAD
     const fetchAvatar = async () => {
         if (!event?.id) return;
 
@@ -472,45 +395,12 @@ export default function PostCardEventScreen({ route, navigation }) {
         maybe: "#FFC400", // yellow
         no: "#FD2646",    // red
     };
-=======
-    // (profiles doesn't have an "event" column — that link lives on
-    // "invited", so we query invited and join into profiles for the avatar)
-    useEffect(() => {
-        if (!event?.id) return;
-
-        const fetchAvatar = async () => {
-            setIsLoadingAvatar(true);
-
-            const { data, error } = await supabase
-                .from("invited")
-                .select("user, profiles(userName, avatar)")
-                .eq("event", Number(event.id));
-
-            if (error) {
-                console.error("Error fetching invited avatars:", error);
-                setAvatar([]);
-            } else {
-                // pull the joined profile out of each invited row
-                const invitedProfiles = (data ?? [])
-                    .map((row) => row.profiles)
-                    .filter(Boolean);
-                setAvatar(invitedProfiles);
-            }
-
-            setIsLoadingAvatar(false);
-        };
-
-        fetchAvatar();
-    }, [event?.id]);
-
->>>>>>> main
 
     // Header element containing top event details
     const renderHeader = () => (
         <View style={styles.headerContainer}>
             {/* Top event photo + title/date/attendee pill */}
             <View style={styles.eventInfoSection}>
-<<<<<<< HEAD
                 <Pressable onPress={() => setStoryViewerVisible(true)}>
                     <Image
                         source={{
@@ -522,16 +412,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                         style={styles.image}
                     />
                 </Pressable>
-=======
-                <Image
-                    source={{
-                        uri:
-                            event.image_url ||
-                            "https://s3.amazonaws.com/media.theteenmagazine.com/ckeditor_uploads/posts/6-unique-hangout-ideas-to-do-with-your-friends-that-won-t-break-the-bank/e54d8d59-17cb-420d-9965-48fa31ce1caa-2070.png",
-                    }}
-                    style={styles.image}
-                />
->>>>>>> main
 
                 <View style={styles.eventDetails}>
                     <Text style={styles.title}>{event.title || "Untitled Event"}</Text>
@@ -547,11 +427,7 @@ export default function PostCardEventScreen({ route, navigation }) {
                         </Text>
                     </View>
 
-<<<<<<< HEAD
                     {/* Avatars & extra attendees row */}
-=======
-                    {/* Avatars & extra attendees row - pulled live from invited/profiles now */}
->>>>>>> main
                     <View style={styles.avatarRow}>
                         <View style={styles.avatarStack}>
                             {avatar.slice(0, 3).map((profile, index) => (
@@ -562,7 +438,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                                         styles.stackedAvatar,
                                         index > 0 && styles.overlappingAvatar,
                                     ]}
-<<<<<<< HEAD
                                     onError={(error) => {
                                         console.log(
                                             "Avatar failed:",
@@ -571,19 +446,13 @@ export default function PostCardEventScreen({ route, navigation }) {
                                             error.nativeEvent.error
                                         );
                                     }}
-=======
->>>>>>> main
                                 />
                             ))}
                         </View>
 
                         <View style={styles.badgePill}>
                             <Text style={styles.badgeText}>
-<<<<<<< HEAD
                                 + {attendingCount-3} attending
-=======
-                                + {attendingCount} attending
->>>>>>> main
                             </Text>
                         </View>
                     </View>
@@ -594,35 +463,26 @@ export default function PostCardEventScreen({ route, navigation }) {
             <View style={styles.actionsRow}>
                 <Pressable
                     style={styles.actionPill}
-<<<<<<< HEAD
                     onPress={() =>
                         navigation?.navigate?.("EventMap", { event })
                     }
-=======
-                    onPress={() => navigation?.navigate?.("Map", { event })}
->>>>>>> main
                 >
                     <Text style={styles.actionText}>View on map</Text>
                 </Pressable>
 
                 <Pressable
                     style={styles.actionPill}
-<<<<<<< HEAD
                     onPress={() =>
                         navigation?.navigate?.("UserTab", {
                             screen: "Chat",
                             params: { event },
                         })
                     }
-=======
-                    onPress={() => navigation?.navigate?.("Chat", { event })}
->>>>>>> main
                 >
                     <Text style={styles.actionText}>Open chat</Text>
                 </Pressable>
             </View>
 
-<<<<<<< HEAD
             {/* RSVP segmented buttons - yes/maybe/no. value/label split so
                 the DB stores lowercase but the UI still shows Title Case.
                 Each segment gets its own status color (green/yellow/red)
@@ -662,17 +522,6 @@ export default function PostCardEventScreen({ route, navigation }) {
                             labelStyle:
                                 rsvpValue === "no" ? { color: "#FFFFFF" } : undefined,
                         },
-=======
-            {/* RSVP segmented buttons - yes/maybe/no */}
-            <View style={styles.rsvpContainer}>
-                <SegmentedButtons
-                    value={rsvpValue}
-                    onValueChange={setRsvpValue}
-                    buttons={[
-                        { value: "Yes", label: "Yes" },
-                        { value: "Maybe", label: "Maybe" },
-                        { value: "No", label: "No" },
->>>>>>> main
                     ]}
                 />
             </View>
@@ -683,11 +532,7 @@ export default function PostCardEventScreen({ route, navigation }) {
             ) : null}
 
             <Text style={styles.host}>
-<<<<<<< HEAD
                 Hosted by: @{host}
-=======
-                Hosted by: {event.host_profile?.userName || "Unknown host"}
->>>>>>> main
             </Text>
             <Text style={styles.attending}>
                 {attendingCount} {attendingCount === 1 ? "friend" : "friends"} attending
@@ -732,7 +577,6 @@ export default function PostCardEventScreen({ route, navigation }) {
         </View>
     );
 
-<<<<<<< HEAD
     // make the media grid — filters by active tab now that media_type exists
     const gridData =
         activeTab === "Stories"
@@ -901,48 +745,10 @@ export default function PostCardEventScreen({ route, navigation }) {
                 </View>
             </Modal>
         </View>
-=======
-    const visibleData = eventMedia;
-
-    // make the media grid
-    return (
-        <FlatList
-            style={styles.container}
-            data={eventMedia}
-            numColumns={2}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={renderHeader}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-            renderItem={({ item }) => (
-                <View style={styles.storyCard}>
-                    <Image
-                        source={{ uri: item.media }}
-                        style={styles.storyImage}
-                        resizeMode="cover"
-                        onError={(error) => {
-                            console.log(
-                                "Image failed:",
-                                item.media,
-                                error.nativeEvent.error
-                            );
-                        }}
-                    />
-                </View>
-            )}
-            ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                    {isLoadingMedia ? "Loading media..." : "No media yet."}
-                </Text>
-            }
-        />
->>>>>>> main
     );
 }
 
 const styles = StyleSheet.create({
-<<<<<<< HEAD
     screenRoot: {
         flex: 1,
         position: "relative",
@@ -953,8 +759,6 @@ const styles = StyleSheet.create({
         right: 24,
         zIndex: 20,
     },
-=======
->>>>>>> main
     container: {
         flex: 1,
         backgroundColor: "#FFF",
@@ -1080,11 +884,7 @@ const styles = StyleSheet.create({
     },
     attending: {
         fontSize: 14,
-<<<<<<< HEAD
         color: "#3399ff",
-=======
-        color: "#FF3386",
->>>>>>> main
         marginTop: 5,
         marginBottom: 20,
     },
@@ -1165,7 +965,6 @@ const styles = StyleSheet.create({
         color: "#8E8E93",
         marginTop: 24,
     },
-<<<<<<< HEAD
     fabMenu: {
         position: "absolute",
         bottom: 90,
@@ -1268,6 +1067,4 @@ const styles = StyleSheet.create({
         color: "#FFF",
         fontSize: 16,
     },
-=======
->>>>>>> main
 });
